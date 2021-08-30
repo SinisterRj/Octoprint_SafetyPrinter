@@ -1,10 +1,10 @@
 # Safety Printer
 
-This plugin interfaces with Safety Printer MCU (https://github.com/SinisterRj/SafetyPrinter). You can find more information on https://github.com/SinisterRj/SafetyPrinter/wiki
-
-With this plugin you will be able to setup, supervise and trobleshoot your Safety Printer MCU. It provides:
+This plugin interfaces with Safety Printer MCU (https://github.com/SinisterRj/SafetyPrinter). You can find more information on [Wiki](https://github.com/SinisterRj/SafetyPrinter/wiki).
 
 P.S.: This plugin integrates with [Octopod](https://plugins.octoprint.org/plugins/octopod/) notfications, so is highly recommended its installation.
+
+With this plugin you will be able to setup, supervise and trobleshoot your Safety Printer MCU. It provides:
 
 ### Sidebar sensor monitoring:
 ![Sidebar1](https://user-images.githubusercontent.com/81830673/131403877-08929120-4f60-4287-9d52-c4439e3d3743.PNG)
