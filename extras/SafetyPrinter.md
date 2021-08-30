@@ -2,7 +2,7 @@
 layout: plugin
 
 id: SafetyPrinter
-title: SafetyPrinter
+title: Safety Printer
 description: This plugin interfaces with Safety Printer MCU (https://github.com/SinisterRj/SafetyPrinter). 
 authors:
 - Rodrigo C. C. Silva
