@@ -2,7 +2,7 @@
 
 This plugin interfaces with Safety Printer MCU (https://github.com/SinisterRj/SafetyPrinter). You can find more information on [Wiki](https://github.com/SinisterRj/SafetyPrinter/wiki).
 
-P.S.: This plugin integrates with [Octopod](https://plugins.octoprint.org/plugins/octopod/) notfications, so is highly recommended its installation.
+P.S.: It also integrates with [Octopod](https://plugins.octoprint.org/plugins/octopod/) notifications, so is highly recommended its installation.
 
 With this plugin you will be able to setup, supervise and trobleshoot your Safety Printer MCU. It provides:
 
