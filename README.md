@@ -7,4 +7,4 @@ This plugin interfaces with Safety Printer MCU (https://github.com/SinisterRj/Sa
 Install via the bundled [Plugin Manager](https://docs.octoprint.org/en/master/bundledplugins/pluginmanager.html)
 or manually using this URL:
 
-    https://github.com/SinisterRj/Octoprint_SafetyPrinter/archive/master.zip
+    https://github.com/SinisterRj/Octoprint_SafetyPrinter/archive/refs/heads/main.zip
