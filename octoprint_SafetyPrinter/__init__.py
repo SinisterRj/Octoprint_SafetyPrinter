@@ -180,12 +180,12 @@ class SafetyPrinterPlugin(
                 # version check: github repository
                 type="github_release",
                 user="SinisterRj",
-                repo="SafetyPrinter",
+                repo="Octoprint_SafetyPrinter",
                 current=self._plugin_version,
 
                 # update method: pip
                 #pip="https://github.com/SinisterRj/SafetyPrinter/archive/{target_version}.zip"
-                pip="https://downgit.github.io/#/home?url=https://github.com/SinisterRj/SafetyPrinter/tree/main/OctoprintPlugin"
+                pip="https://github.com/SinisterRj/Octoprint_SafetyPrinter/archive/refs/tags/{target_version}.zip"
              )
           )
     
