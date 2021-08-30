@@ -3,17 +3,16 @@ layout: plugin
 
 id: SafetyPrinter
 title: SafetyPrinter
-description: Thi
+description: This plugin interfaces with Safety Printer MCU (https://github.com/SinisterRj/SafetyPrinter). 
 authors:
 - Rodrigo C. C. Silva
 license: AGPLv3
 
-# TODO
-date: today's date in format YYYY-MM-DD, e.g. 2015-04-21
+date: 2021-08-30
 
-homepage: https://github.com/SinisterRj/SafetyPrinter
-source: https://github.com/SinisterRj/SafetyPrinter
-archive: https://github.com/SinisterRj/SafetyPrinter/archive/master.zip
+homepage: https://github.com/SinisterRj/SafetyPrinter/wiki
+source: https://github.com/SinisterRj/Octoprint_SafetyPrinter
+archive: https://github.com/SinisterRj/Octoprint_SafetyPrinter/archive/refs/heads/main.zip
 
 # TODO
 # Set this to true if your plugin uses the dependency_links setup parameter to include
@@ -22,24 +21,34 @@ archive: https://github.com/SinisterRj/SafetyPrinter/archive/master.zip
 
 # TODO
 tags:
-- a list
-- of tags
-- that apply
-- to your plugin
-- (take a look at the existing plugins for what makes sense here)
+- fire
+- smoke
+- notification
+- bed temperature
+- hotend temperature
+- safety
+- flame detector
+- emergency
+- shutdown
+- trip
 
 # TODO
 screenshots:
-- url: url of a screenshot, /assets/img/...
-  alt: alt-text of a screenshot
-  caption: caption of a screenshot
-- url: url of another screenshot, /assets/img/...
-  alt: alt-text of another screenshot
-  caption: caption of another screenshot
-- ...
+- url: https://user-images.githubusercontent.com/81830673/131403877-08929120-4f60-4287-9d52-c4439e3d3743.PNG
+  alt: Sidebar1
+  caption: Sensor information sidebar in normal operation.
+- url: https://user-images.githubusercontent.com/81830673/131403878-91b9ae85-5824-4c6a-8ecc-3547a118b801.PNG
+  alt: Sidebar2
+  caption: Sensor information sidebar in shutdown mode.
+- url: https://user-images.githubusercontent.com/81830673/131403880-dc925006-be2c-4867-b86b-47fb8adfeb09.PNG
+  alt: Setup
+  caption: Setup options.
+- url: https://user-images.githubusercontent.com/81830673/131403874-1c2fbd0e-29bd-4d8f-bb4c-3435596f511d.PNG
+  alt: Terminal
+  caption: Terminal (advanced users).
 
 # TODO
-featuredimage: url of a featured image for your plugin, /assets/img/...
+featuredimage: https://user-images.githubusercontent.com/81830673/131410760-5b069670-9960-484b-adbc-1592cfc1f1ba.PNG
 
 # TODO
 # You only need the following if your plugin requires specific OctoPrint versions or
@@ -98,5 +107,7 @@ compatibility:
 
 ---
 
-**TODO**: Longer description of your plugin, configuration examples etc. This part will be visible on the page at
-http://plugins.octoprint.org/plugin/SafetyPrinter/
+This plugin interfaces with Safety Printer MCU (https://github.com/SinisterRj/SafetyPrinter) to improve your printer's safety.
+You can find more information on Wiki (https://github.com/SinisterRj/SafetyPrinter/wiki).
+P.S.: It also integrates with Octopod notifications, so is highly recommended its installation.
+With this plugin you will be able to setup, supervise and trobleshoot your Safety Printer MCU. It provides: Sidebar sensor monitoring, Plugin and Sensor setup and Safety Printer MCU communications terminal (for advanced users).
