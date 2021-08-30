@@ -1,17 +1,10 @@
-# SafetyPrinter
+# Safety Printer
 
-**TODO:** Describe what your plugin does.
+This plugin interfaces with Safety Printer MCU (https://github.com/SinisterRj/SafetyPrinter). You can find more information on https://github.com/SinisterRj/SafetyPrinter/wiki
 
 ## Setup
 
 Install via the bundled [Plugin Manager](https://docs.octoprint.org/en/master/bundledplugins/pluginmanager.html)
 or manually using this URL:
 
-    https://github.com/SinisterRj/SafetyPrinter/archive/master.zip
-
-**TODO:** Describe how to install your plugin, if more needs to be done than just installing it via pip or through
-the plugin manager.
-
-## Configuration
-
-**TODO:** Describe your plugin's configuration options (if any).
+    https://github.com/SinisterRj/Octoprint_SafetyPrinter/archive/master.zip
