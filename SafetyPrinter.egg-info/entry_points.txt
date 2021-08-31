@@ -1,3 +1,0 @@
-[octoprint.plugin]
-SafetyPrinter = octoprint_SafetyPrinter
-
