@@ -201,6 +201,17 @@ class SafetyPrinterPlugin(
                 repo="Octoprint_SafetyPrinter",
                 current=self._plugin_version,
 
+                stable_branch=dict(
+                    name="Stable", branch="master", comittish=["master"]
+                ),
+                prerelease_branches=[
+                    dict(
+                        name="Release Candidate",
+                        branch="devel",
+                        comittish=["devel", "master"],
+                    )
+                ],
+
                 # update method: pip
                 pip="https://github.com/SinisterRj/Octoprint_SafetyPrinter/archive/refs/tags/{target_version}.zip"
              )
