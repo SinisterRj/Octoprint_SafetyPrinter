@@ -1,13 +1,3 @@
-<script type="application/javascript">
-    function SafetyPrinterEBConfirmClick()
-    {
-        var result = window.confirm("Are you sure? This will STOP any printing and you will loose any running job.");
-        if (result) {
-            OctoPrint.simpleApiCommand("SafetyPrinter", "sendTrip");
-        }
-    }
-</script>
-
 <div id="SafetyPrinter">
 <div class="input-group">
   <label class="checkbox">
@@ -39,6 +29,8 @@
 </tbody>
 </table>
 <span data-bind="hidden: notConnected">
-<center><button onclick='SafetyPrinterEBConfirmClick()' class="btn btn-danger">Emergency STOP</button></center>
+<span data-bind="visible: confirmVisible()">Are you sure? This will STOP any printing and you will loose any running job.</span>  
+<center><button data-bind="click: tripBtn, hidden: confirmVisible()" class="btn btn-danger">Emergency STOP</button></center>
+<center><button class="btn btn-danger" data-bind="click: tripConfirmBtn, visible: confirmVisible()">Confirm E. STOP</button> <button class="btn" data-bind="click: tripBtn, visible: confirmVisible()">Cancel</button>
 </span>
 </div>

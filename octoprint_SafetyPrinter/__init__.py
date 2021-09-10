@@ -1,3 +1,35 @@
+'''
+ * Safety Printer Octoprint Plugin
+ * Copyright (c) 2021 Rodrigo C. C. Silva [https://github.com/SinisterRj/Octoprint_SafetyPrinter]
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ *  
+ * Change log:
+ *
+ * Version 1.1.0
+ * 09/06/2021
+ * 1) Include CRC check from <r1>, <r2>, <r4> and <r5> command responses (communication protocol rev. 2),
+ * 2) Improve logging and notifications,
+ * 3) Add MCU info to settings tab,
+ * 4) Add BAUD rate to settings tab,
+ * 5) More Themeify and UI Customizer friendly,
+ * 6) Remake terminal filters;
+ *
+
+ '''
+
 # coding=utf-8
 from __future__ import absolute_import
 import logging
@@ -71,24 +103,11 @@ class SafetyPrinterPlugin(
         #self.console_setlevel(self.loggingLevel)
         self._console_logger.propagate = False
 
-    '''def console_setlevel(self, level):
-    #    if level == "DEBUG":
-    #        self._logger.info("********************** DEBUG") #Octoprint logger
-            self._console_logger.setLevel(logging.DEBUG)
-        elif level == "INFO":
-            self._logger.info("********************** INFO") #Octoprint logger
-            self._console_logger.setLevel(logging.INFO)
-        elif level == "WARNING":
-            self._console_logger.setLevel(logging.WARNING)
-        elif level == "ERROR":
-            self._console_logger.setLevel(logging.ERROR)
-        elif level == "CRITICAL":
-            self._console_logger.setLevel(logging.CRITICAL)
-'''
     def on_after_startup(self):
         self._logger.info("Safety Printer Plugin started.") #Octoprint logger 
         self._console_logger.info("******************* Starting Safety Printer Plug-in ***************************")
         self._console_logger.info("Default Serial Port:" + str(self._settings.get(["serialport"])))
+        self._console_logger.info("Default BAUD rate:" + str(self._settings.get(["BAUDRate"])))
         self.new_connection()
 
         self.abortTimeout = self._settings.get_int(["abortTimeout"])
@@ -118,12 +137,14 @@ class SafetyPrinterPlugin(
     def get_settings_defaults(self):
         return dict(
             serialport="AUTO",
+            BAUDRate="115200",
             abortTimeout = 30,
             rememberCheckBox = False,
             lastCheckBoxValue = False,
             turnOffPrinter = True,
             showTerminal = False,
             loggingLevel = "INFO",
+            notifyWarnings = True,
         )
 
     def on_settings_save(self, data):
@@ -138,21 +159,18 @@ class SafetyPrinterPlugin(
         
         self._console_logger.info("User changed settings.")
         self._console_logger.debug("serialport: %s" % self._settings.get(["serialport"]))
+        self._console_logger.debug("BAUDRate: %s" % self._settings.get(["BAUDRate"]))
         self._console_logger.debug("abortTimeout: %s" % self.abortTimeout)
         self._console_logger.debug("rememberCheckBox: %s" % self.rememberCheckBox)
         self._console_logger.debug("lastCheckBoxValue: %s" % self.lastCheckBoxValue)
         self._console_logger.debug("showTerminal: %s" % self.showTerminal)
         self._console_logger.debug("loggingLevel: %s" % self.loggingLevel)
+        self._console_logger.debug("notifyWarnings: %s" % self._settings.get(["notifyWarnings"]))
 
     def get_template_vars(self):
         return dict(
             serialport=self._settings.get(["serialport"]),
             loggingLevel=self._settings.get(["loggingLevel"]),
-            #FWVersion=self.FWVersion, 
-            #FWReleaseDate=self.FWReleaseDate, 
-            #FWEEPROM=self.FWEEPROM, 
-            #FWCommProtocol=self.FWCommProtocol,
-            #FWValidVersion=self.FWValidVersion 
         )
 
     ##~~ AssetPlugin mixin
@@ -184,7 +202,6 @@ class SafetyPrinterPlugin(
                 current=self._plugin_version,
 
                 # update method: pip
-                #pip="https://github.com/SinisterRj/SafetyPrinter/archive/{target_version}.zip"
                 pip="https://github.com/SinisterRj/Octoprint_SafetyPrinter/archive/refs/tags/{target_version}.zip"
              )
           )
@@ -206,7 +223,8 @@ class SafetyPrinterPlugin(
             saveEEPROM=[],
             enableShutdown=[],
             disableShutdown=[],
-            abortShutdown=[]
+            abortShutdown=[],
+            refreshMCUStats=[]
         )
 
     def on_api_command(self, command, data):
@@ -239,6 +257,8 @@ class SafetyPrinterPlugin(
                 self.disableShutdown()
             elif command == "abortShutdown":
                 self.abortShutdown()
+            elif command == "refreshMCUStats":
+                self.refreshMCUStats()
             response = "POST request (%s) successful" % command
             return flask.jsonify(response=response, data=data, status=200), 200
         except Exception as e:
@@ -315,13 +335,18 @@ class SafetyPrinterPlugin(
         self._timeout_value = None
         self._plugin_manager.send_plugin_message(self._identifier, {"type":"shutdown","automaticShutdownEnabled": self._automatic_shutdown_enabled, "timeout_value":self._timeout_value})
         self._console_logger.info("Shutdown aborted.")
+    
+    def refreshMCUStats(self):
+        if self.conn.is_connected():
+            self._console_logger.info("Refreshing MCU status.")
+            self.conn.update_MCU_Stats()
 
     def on_event(self, event, payload):
 
         if event == Events.CLIENT_OPENED:
             self._plugin_manager.send_plugin_message(self._identifier, {"type":"shutdown","automaticShutdownEnabled": self._automatic_shutdown_enabled, "timeout_value":self._timeout_value})
             return
-        
+       
         if not self._automatic_shutdown_enabled:
             return
         

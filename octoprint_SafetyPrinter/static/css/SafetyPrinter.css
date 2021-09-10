@@ -27,14 +27,3 @@
     border: 1px solid black;
     border-spacing: 10px;
 }
-
-.SPterminal {
-    width: 97%;
-    #SafetyPrinterTerminal {
-      min-height: 340px;
-      margin-bottom: 5px;
-    }
-
-    margin-bottom: 30px;
-}
-

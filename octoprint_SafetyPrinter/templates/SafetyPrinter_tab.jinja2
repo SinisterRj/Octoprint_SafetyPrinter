@@ -1,16 +1,22 @@
 <h3>Safety Printer Terminal</h3>
-<div class="SPterminal">
-    <pre id="SafetyPrinterTerminal" class="pre-scrollable pre-output" data-bind="foreach: terminalLines, click: function(){ gotoTerminalCommand(); }, event: { scroll: terminalScrollEvent }"><span data-bind="text: type() + ':' + line()"></span></pre>
+<div class="terminal">
+    <pre id="SafetyPrinterTerminal" class="pre-scrollable pre-output" data-bind="foreach: displayedLines, click: function(){ gotoTerminalCommand(); }, event: { scroll: terminalScrollEvent }, style: {color: terminalColor(), background: terminalBg()}"><span data-bind="text: type() ? type() + ':' + line() : line(), style: {color: line() == '[...]'? 'lightgray' : ''}"></span></pre>
+    <div>
+        <div class="input-block-level input-append">
+            <input type="text" id="SPterminal-command" data-bind="value: command, enable:!notConnected()">
+            <a href="#" class="btn add-on" id="SPterminal-send" data-bind="click: sendCommandBtn, enable:!notConnected()">Send</a>
+        </div>
+    </div>
     <small id="terminal-autoscroll-panel" class="pull-left">
         <button class="btn btn-mini terminal-autoscroll" data-bind="click: toggleAutoscrollBtn, css: {active: autoscrollEnabled}">Autoscroll</button><span data-bind="visible: !autoscrollEnabled()" style="display: none">(<a href="javascript:void(0)" data-bind="click: scrollToEnd">Scroll to end</a>)</span>       
     </small>
-    <div>
-        <div class="input-block-level input-append">
-            <input type="text" id="SPterminal-command" data-bind="value: command">
-            <a href="#" class="btn add-on" id="SPterminal-send" data-bind="click: sendCommandBtn">Send</a>
-        </div>
-    </div>
+    <small id="terminal-actions-panel" class="pull-right">
+        <a href="javascript:void(0)" data-bind="click: copyAll"><i class="fas fa-copy terminal-copy-all" title="{{ _('Copy all')|edq }}"></i> {{ _('Copy all') }}</a><br>
+        <a href="javascript:void(0)" data-bind="click: clearAllLogs"><i class="far fa-trash-alt terminal-clear-logs" title="{{ _('Clear log window')|edq }}"></i> {{ _('Clear all') }}</a>
+    </small>
 </div>
+
+<p>&nbsp;&nbsp;
 <div class="row-fluid">
     <div class="span6" id="terminal-filterpanel">
             <label class="checkbox">
@@ -18,6 +24,7 @@
             </label>
     </div>
 </div>
+</p></br>
 <script type="application/javascript">
 var input = document.getElementById("SPterminal-command");
 input.addEventListener("keyup", function(event) {
@@ -29,3 +36,13 @@ input.addEventListener("keyup", function(event) {
 </script>
 <i class="icon-book"></i>&nbsp;&nbsp;<h5 style="display: inline-block">Documentation</h5>
     <p>Documentation is available on <a target="_new" href="https://github.com/SinisterRj/SafetyPrinter/wiki/Commands">Github</a></p><a target="_new" href="https://github.com/SinisterRj/SafetyPrinter/wiki/Commands"></a>
+
+<div class="advanced_options">
+    <div><small><a href="#" class="muted" data-bind="toggleContent: { class: 'fa-caret-right fa-caret-down', parent: '.advanced_options', container: '.hide' }"><i class="fas fa-caret-right"></i> Advanced options</a></small></div>
+    <div class="hide">        
+        <p>  
+        <input type="checkbox" data-bind="checked: showDebug"> Show DEBUG messages.</input>
+        </p>
+    </div>
+</div>
+
