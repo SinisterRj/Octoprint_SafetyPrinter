@@ -9,7 +9,7 @@
     <tr>
         <td width="30%" align="right">Connection:&nbsp;&nbsp;</td>
         <td> 
-            <span data-bind="style: {color: connectionColor}"><strong data-bind="text: connection"></strong></span>
+            <span data-bind="style: {color: notConnected()? '#EB9605' : 'revert'}"><strong data-bind="text: connection"></strong></span>
         </td>
         <td>
             <button data-bind="click: connectBtn, text: connectionCaption" class="btn"></button>
@@ -25,7 +25,7 @@
     <tr>
         <td align="right">Default Serial Port:&nbsp;&nbsp;</td>
         <td>
-            <select data-bind="options: availablePorts, optionsText: 'name', optionsValue: 'name', value: settingsViewModel.settings.plugins.SafetyPrinter.serialport, valueAllowUnset: true, click: onStartupComplete"></select>
+            <select data-bind="options: availablePorts, optionsText: 'name', optionsValue: 'name', value: settingsViewModel.settings.plugins.SafetyPrinter.serialport, valueAllowUnset: true"></select>
         </td>
         <td></td>
     </tr>
@@ -39,9 +39,6 @@
                 <option>38400</option>
                 <option>57600</option>
                 <option>115200</option>
-                <option>250000</option>
-                <option>500000</option>
-                <option>1000000</option>
             </select>
         </td>
         <td></td>
@@ -170,7 +167,7 @@
         <td></td><td>
             <div class="controls">
                 <label class="checkbox">
-                <input type="checkbox" data-bind="checked: settingsViewModel.settings.plugins.SafetyPrinter.notifyWarnings"> Notify WARNINGS on Octoprint UI and app (needs Octopod plugin).
+                <input type="checkbox" data-bind="checked: settingsViewModel.settings.plugins.SafetyPrinter.notifyWarnings"> Notify WARNINGS on Octoprint UI and app (needs <a target="_new" href="https://plugins.octoprint.org/plugins/octopod/">Octopod plugin</a>).
                 </label>
             </div>
         </td>
@@ -182,10 +179,10 @@
 <table class="table table-bordered table-hover SPTable">
   <thead>
   <tr>
-    <th style="width:5%"></th>
-    <th style="width:22%"><small>Label:</small></th>
-    <th style="width:10%"><small>Type:</small></th>
-    <th style="width:10%"><small>Enable:</small></th>
+    <th style="width:2%"></th>
+    <th style="width:20%"><small>Label:</small></th>
+    <th style="width:14%"><small>Type:</small></th>
+    <th style="width:8%"><small>Enable:</small></th>
     <th style="width:10%"><small>Status:</small></th>
     <th style="width:14%"><small>Set Point:</small></th>
     <th style="width:14%"><small>Timer:</small></th>

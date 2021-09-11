@@ -1,6 +1,6 @@
 <h3>Safety Printer Terminal</h3>
 <div class="terminal">
-    <pre id="SafetyPrinterTerminal" class="pre-scrollable pre-output" data-bind="foreach: displayedLines, click: function(){ gotoTerminalCommand(); }, event: { scroll: terminalScrollEvent }, style: {color: terminalColor(), background: terminalBg()}"><span data-bind="text: type() ? type() + ':' + line() : line(), style: {color: line() == '[...]'? 'lightgray' : ''}"></span></pre>
+    <pre id="SafetyPrinterTerminal" class="pre-scrollable pre-output" data-bind="foreach: displayedLines, click: function(){ gotoTerminalCommand(); }, event: { scroll: terminalScrollEvent }, style: {color: terminalColor(), background: terminalBg()}"><span data-bind="text: type() ? type() + ': ' + line() : line(), style: {color: line() == '[...]'? 'lightgray' : ''}"></span></pre>
     <div>
         <div class="input-block-level input-append">
             <input type="text" id="SPterminal-command" data-bind="value: command, enable:!notConnected()">

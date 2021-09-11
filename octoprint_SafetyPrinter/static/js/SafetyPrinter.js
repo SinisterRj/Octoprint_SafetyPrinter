@@ -32,13 +32,11 @@ $(function() {
 
     }
 
-    function spSensorsSettingsType(visible, checked, label, status, color, actualvalue, enabled, active, type, SP, timer, availableSP, expertMode) {
+    function spSensorsSettingsType(visible, checked, label, actualvalue, enabled, active, type, SP, timer, availableSP, expertMode) {
         var self = this;
         self.visible = ko.observable(visible);
         self.checked = ko.observable(checked);
         self.label = ko.observable(label);
-        self.status = ko.observable(status);
-        self.color = ko.observable(color);
         self.actualvalue = ko.observable(actualvalue);        
         self.enabled = ko.observable(enabled);
         self.active = ko.observable(active);
@@ -63,13 +61,13 @@ $(function() {
     function SafetyprinterViewModel(parameters) {
         var self = this;
 
+        self.debug = false;  
+
         self.settingsViewModel = parameters[0];
         self.printerState = parameters[1];
         
         // Sidebar variables
-        self.interlock = ko.observable("Normal");
-        self.interlockColor = ko.observable();
-        self.tripBtnVisible = ko.observable();
+        self.interlock = ko.observable(false);
         self.activeSensors = "";
         self.confirmVisible = ko.observable(false);
 
@@ -84,10 +82,11 @@ $(function() {
            new spSensorsType(false,"","offline","gray",false,false,"0","0","0")
         ]);
 
-        // Settings variables
-        self.autoscrollEnabled = ko.observable(true);
+        // Settings variables        
         self.expertMode = ko.observable(false);
         self.availablePorts = ko.observableArray();
+        self.settingsVisible = false;
+        self.changedFlag = false;
                 
         self.updateSettingsSensors = false;
         self.FWVersion = ko.observable("");
@@ -108,22 +107,26 @@ $(function() {
         self.sensorDataVisible = ko.observable(false);
 
         self.spSensorsSettings = ko.observableArray([
-           new spSensorsSettingsType(false,false,"","offline","gray","0",false,false,"0","0","0",[],false),
-           new spSensorsSettingsType(false,false,"","offline","gray","0",false,false,"0","0","0",[],false),
-           new spSensorsSettingsType(false,false,"","offline","gray","0",false,false,"0","0","0",[],false),
-           new spSensorsSettingsType(false,false,"","offline","gray","0",false,false,"0","0","0",[],false),
-           new spSensorsSettingsType(false,false,"","offline","gray","0",false,false,"0","0","0",[],false),
-           new spSensorsSettingsType(false,false,"","offline","gray","0",false,false,"0","0","0",[],false),
-           new spSensorsSettingsType(false,false,"","offline","gray","0",false,false,"0","0","0",[],false),
-           new spSensorsSettingsType(false,false,"","offline","gray","0",false,false,"0","0","0",[],false)
+           new spSensorsSettingsType(false,false,"","0",false,false,"0","0","0",[],false),
+           new spSensorsSettingsType(false,false,"","0",false,false,"0","0","0",[],false),
+           new spSensorsSettingsType(false,false,"","0",false,false,"0","0","0",[],false),
+           new spSensorsSettingsType(false,false,"","0",false,false,"0","0","0",[],false),
+           new spSensorsSettingsType(false,false,"","0",false,false,"0","0","0",[],false),
+           new spSensorsSettingsType(false,false,"","0",false,false,"0","0","0",[],false),
+           new spSensorsSettingsType(false,false,"","0",false,false,"0","0","0",[],false),
+           new spSensorsSettingsType(false,false,"","0",false,false,"0","0","0",[],false)
         ]);
 
         // Navbar variables
         self.navbarcolor = ko.observable("#EB9605");
         self.navbartitle = ko.observable("Safety Printer: Offline");
-        self.activeError = false;
+        self.NBOffline = false;
+        self.NBError = false;
+        self.NBWarning = false;
+        self.NBtrip = false;
 
         // Tab variables
+        self.autoscrollEnabled = ko.observable(true);
         self.showDebug = ko.observable(false);
         self.terminalLines = ko.observableArray();
         self.countTerminalLines = 0;
@@ -136,7 +139,6 @@ $(function() {
 
         // General variables
         self.connection = ko.observable("Offline");
-        self.connectionColor = ko.observable("#EB9605");
         self.notConnected = ko.observable(true);
         self.connectedPort = ko.observable("None");
         self.connectionCaption = ko.observable("Connect");
@@ -217,7 +219,7 @@ $(function() {
                     promptTrigger: true,
                     click: function(notice, value){
                         notice.remove();
-                        self.activeError = false;
+                        self.updateNavbar('Error',false)
                         notice.get().trigger("pnotify.cancel", [notice, value]);
                     }
                 }]
@@ -245,7 +247,7 @@ $(function() {
                     promptTrigger: true,
                     click: function(notice, value){
                         notice.remove();
-                        self.activeError = false;
+                        self.updateNavbar('Warning',false)
                         notice.get().trigger("pnotify.cancel", [notice, value]);
                     }
                 }]
@@ -260,12 +262,14 @@ $(function() {
         };
 
         self.onStartupComplete = function() {
+            if (self.debug) {console.log("onStartupComplete")};
             //Show or hide terminal TAB.
             self.showHideTab();
+            OctoPrint.simpleApiCommand("SafetyPrinter", "forceRenew"); 
         };
-
-        
+      
         self.showHideTab = function() {
+            if (self.debug) {console.log("showHideTab")};
             // Shows or hides the terminal TAB on UI.
             if ((self.settingsViewModel.settings.plugins.SafetyPrinter.showTerminal() == true) && (!document.getElementById("tab_plugin_SafetyPrinter_link"))) {
                 $("<li id='tab_plugin_SafetyPrinter_link' class='' data-bind='allowBindings: true'><a href='#tab_plugin_SafetyPrinter' data-toggle='tab'>Safety Printer</a></li>").appendTo("#tabs");
@@ -277,6 +281,7 @@ $(function() {
         // ************* Functions of the terminal TAB:
 
         self.terminalScrollEvent = _.throttle(function () {
+            if (self.debug) {console.log("terminalScrollEvent")};
             // If user scrolls the terminal, it stops the autoscrolling
             var container = $("#SafetyPrinterTerminal");
             var pos = container.scrollTop();
@@ -294,6 +299,7 @@ $(function() {
         }, 250);
 
         self.gotoTerminalCommand = function () {
+            if (self.debug) {console.log("gotoTerminalCommand")};
             // skip if user highlights text.
             var sel = getSelection().toString();
             if (sel) {
@@ -305,22 +311,21 @@ $(function() {
         };
 
         self.onAfterTabChange = function (current, previous) {
+            if (self.debug) {console.log("onAfterTabChange")};
             self.tabActive = current === "#term";
             self.updateOutput();
         };
 
 
         self.updateOutput = function () {
-            if (
-                self.tabActive &&
-                OctoPrint.coreui.browserTabVisible &&
-                self.autoscrollEnabled()
-            ) {
+            if (self.debug) {console.log("updateOutput")};
+            if (self.tabActive && OctoPrint.coreui.browserTabVisible && self.autoscrollEnabled() && $("#SafetyPrinterTerminal").is(':visible')) {
                 self.scrollToEnd();
             }
         };
 
         self.displayedLines = ko.pureComputed(function () {
+            if (self.debug) {console.log("displayedLines")};
             // Filter and display msgs on terminal
 
             var col=document.getElementById("terminal-output");
@@ -355,9 +360,29 @@ $(function() {
 
         // ************* Update Settings TAB:
 
-        self.onSettingsShown = function() {
+        self.onSettingsShown = function () {
+            if (self.debug) {console.log("onSettingsShown")};
+            
+            self.settingsVisible = true;
+            self.refreshSettings();
+            OctoPrint.simpleApiCommand("SafetyPrinter", "settingsVisible", {status: self.settingsVisible});
+        };
 
+        self.onSettingsHidden = function () {
+            if (self.debug) {console.log("onSettingsHidden")};
+            self.settingsVisible = false;
+            OctoPrint.simpleApiCommand("SafetyPrinter", "settingsVisible", {status: self.settingsVisible});
+            if (self.changedFlag && !self.printerState.isPrinting()) {
+                if (self.debug) {console.log("Writing EEPROM")};
+                self.changedFlag = false;
+                OctoPrint.simpleApiCommand("SafetyPrinter", "saveEEPROM");  
+            }
+        }; 
+
+        self.refreshSettings = function() {
+            if (self.debug) {console.log("refreshSettings")};
             // Update serial ports info. Also called when user clicks on "default Serial" combo box
+            OctoPrint.simpleApiCommand("SafetyPrinter", "forceRenew"); 
             self.availablePorts.removeAll();
             self.availablePorts.push(new ItemViewModel("AUTO"));
             OctoPrint.simpleApiCommand("SafetyPrinter", "getPorts");
@@ -391,16 +416,17 @@ $(function() {
         };
 
         self.onSettingsBeforeSave = function() {
-            changedFlag = false;
+            if (self.debug) {console.log("onSettingsBeforeSave")};
+            //self.changedFlag = false;
             alertFlag = false;
                         
             for (i = 0; i < self.numOfSensors; i++) {                                         
 
                 if (self.spSensorsSettings()[i].SP() != self.spSensors()[i].SP()) {
                     if (!self.printerState.isPrinting()) {  // avoids changins during printing.
-                        //console.log("Changing SP: " + self.spSensorsSettings()[i].label())
+                        if (self.debug) {console.log("Changing SP: " + self.spSensorsSettings()[i].label())};
                         OctoPrint.simpleApiCommand("SafetyPrinter", "changeSP", {id: i, newSP: self.spSensorsSettings()[i].SP()});
-                        changedFlag = true;
+                        self.changedFlag = true;
                     } else {
                         alertFlag = true;
                     }
@@ -408,9 +434,9 @@ $(function() {
 
                 if (self.spSensorsSettings()[i].timer() != self.spSensors()[i].timer()) {
                     if (!self.printerState.isPrinting()) {  // avoids changins during printing.
-                        //console.log("Changing Timer: " + self.spSensorsSettings()[i].label())
+                        if (self.debug) {console.log("Changing Timer: " + self.spSensorsSettings()[i].label())};
                         OctoPrint.simpleApiCommand("SafetyPrinter", "changeTimer", {id: i, newTimer: self.spSensorsSettings()[i].timer()});
-                        changedFlag = true;
+                        self.changedFlag = true;
                     } else {
                         alertFlag = true;
                     }
@@ -420,33 +446,30 @@ $(function() {
                 if (self.spSensorsSettings()[i].enabled() != self.spSensors()[i].enabled()) {
                     if (!self.printerState.isPrinting()) {  // avoids changins during printing.
                         if (self.spSensorsSettings()[i].enabled()) {                        
-                            //console.log("Enabling: " + self.spSensorsSettings()[i].label())
+                            if (self.debug) {console.log("Enabling: " + self.spSensorsSettings()[i].label())};
                             OctoPrint.simpleApiCommand("SafetyPrinter", "toggleEnabled", {id: i, onoff: "on"});
-                            changedFlag = true;
+                            self.changedFlag = true;
                         } else {
-                            //console.log("Disabling: " + self.spSensorsSettings()[i].label())
+                            if (self.debug) {console.log("Disabling: " + self.spSensorsSettings()[i].label())};
                             OctoPrint.simpleApiCommand("SafetyPrinter", "toggleEnabled", {id: i, onoff: "off"});
-                            changedFlag = true;
+                            self.changedFlag = true;
                         }
                     } else {
                         alertFlag = true;
                     }                    
                 }
             }
-            if (changedFlag && !self.printerState.isPrinting()) {
-                //console.log("Writing EEPROM")
-                OctoPrint.simpleApiCommand("SafetyPrinter", "saveEEPROM");  
-            }
             self.showHideTab();
             if (alertFlag) {
                 window.alert("The Safety Printer modifications cannot be applied during printing.");
             }
 
-        }
+        };
 
         // ************* Functions for each button on Settings TAB:
 
         self.toggleAutoscrollBtn = function() {
+            if (self.debug) {console.log("toggleAutoscrollBtn")};
             // Changes the setings terminal autoscroll to ON or OFF
             self.autoscrollEnabled(!self.autoscrollEnabled());
 
@@ -456,15 +479,17 @@ $(function() {
         };
 
         self.toggleFilterBtn = function() {
+            if (self.debug) {console.log("toggleFilterBtn")};
             // enable or disable <R1> messages on terminal
             self.tempMsgFilter(!self.tempMsgFilter());
         };
 
         self.resetBtn = function(item) {
+            if (self.debug) {console.log("resetBtn")};
             // Send a command to arduino restore sensor settings
             for (i = 0; i < self.numOfSensors; i++) {                                         
                 if (self.spSensorsSettings()[i].checked()) {
-                    //console.log("Restoring " + self.spSensorsSettings()[i].label() + " default settings.");
+                    //if (self.debug) {console.log("Restoring " + self.spSensorsSettings()[i].label() + " default settings.")};
                     OctoPrint.simpleApiCommand("SafetyPrinter", "resetSettings", {id: i}); 
                 }
             }
@@ -472,6 +497,7 @@ $(function() {
         };
 
         self.refreshMCUStats = function(item) {
+            if (self.debug) {console.log("refreshMCUStats")};
             // Send a command to arduino refresh MCU status
             OctoPrint.simpleApiCommand("SafetyPrinter", "refreshMCUStats"); 
         };
@@ -479,18 +505,29 @@ $(function() {
         // ************* Functions for each button on Terminal TAB:
 
         self.sendCommandBtn = function() {
+            if (self.debug) {console.log("sendCommandBtn")};
             // Send generic user comands from command line on terminal to arduino
-            OctoPrint.simpleApiCommand("SafetyPrinter", "sendCommand", {serialCommand: self.command()}); 
+            if (self.command().toUpperCase() == "@DISCONNECT") {
+                OctoPrint.simpleApiCommand("SafetyPrinter", "disconnect");     
+            } else if (self.command().toUpperCase() == "@CONNECT") {
+                OctoPrint.simpleApiCommand("SafetyPrinter", "reconnect"); 
+            } else if (self.command().toUpperCase() == "@RENEW") {
+                OctoPrint.simpleApiCommand("SafetyPrinter", "forceRenew");  
+            } else {
+                OctoPrint.simpleApiCommand("SafetyPrinter", "sendCommand", {serialCommand: self.command()}); 
+            }
         };
 
         self.scrollToEnd = function () {
+            if (self.debug) {console.log("scrollToEnd")};
             var container = $("#SafetyPrinterTerminal");
-            if (container.length) {
+            if ((container.length) && $("#SafetyPrinterTerminal").is(':visible') && OctoPrint.coreui.browserTabVisible) {
                 container.scrollTop(container[0].scrollHeight);
             }
         };
 
         self.copyAll = function () {
+            if (self.debug) {console.log("copyAll")};
             var lines;
             lines = self.terminalLines();
             var clipboard;
@@ -505,6 +542,7 @@ $(function() {
         };
 
         self.clearAllLogs = function () {
+            if (self.debug) {console.log("clearAllLogs")};
             self.terminalLines([]);
             self.countTerminalLines = 0;
         };
@@ -513,6 +551,7 @@ $(function() {
         // ************* Functions for each button on Sidebar:
 
         self.tripResetBtn = function() {
+            if (self.debug) {console.log("tripResetBtn")};
             // Send a command to arduino to reset all trips
             OctoPrint.simpleApiCommand("SafetyPrinter", "resetTrip");
             
@@ -524,54 +563,97 @@ $(function() {
         };
 
         self.onAutomaticShutdownEvent = function() {
+            if (self.debug) {console.log("onAutomaticShutdownEvent")};
             if (self.automaticShutdownEnabled()) {
                 OctoPrint.simpleApiCommand("SafetyPrinter", "enableShutdown");
             } else {
                 OctoPrint.simpleApiCommand("SafetyPrinter", "disableShutdown");
             }
-        }
+        };
+
         self.automaticShutdownEnabled.subscribe(self.onAutomaticShutdownEvent, self);
 
         self.tripBtn = function() {
+            if (self.debug) {console.log("tripBtn")};
             self.confirmVisible(!self.confirmVisible());
-        }
+        };
 
         self.tripConfirmBtn = function() {
+            if (self.debug) {console.log("tripConfirmBtn")};
             self.confirmVisible(!self.confirmVisible());
             OctoPrint.simpleApiCommand("SafetyPrinter", "sendTrip");
-        }
+        };
+
+        // ************* Functions for navbar:
+
+        self.updateNavbar = function(flag,status) {
+            if (self.debug) {console.log("updateNavbar:"+flag+","+status)};
+            switch (flag) {
+                case 'Offline':
+                    self.NBOffline = status;
+                    break;
+                case 'Error':
+                    self.NBError = status;
+                    break;
+                case 'Warning':
+                    self.NBWarning = status;
+                    break;
+                case 'Trip':
+                    self.NBtrip = status;
+                    break;
+            }
+
+            if (self.NBtrip) {
+                self.navbarcolor("red");
+                self.navbartitle("Safety Printer: TRIP!");
+            } else if (self.NBError) {
+                self.navbarcolor("red");
+                self.navbartitle("Safety Printer: Error");
+            } else if (self.NBWarning) {
+                self.navbarcolor("#EB9605");
+                self.navbartitle("Safety Printer: Warning");
+            } else if (self.NBOffline) {
+                self.navbarcolor("#EB9605");
+                self.navbartitle("Safety Printer: Offline");
+            } else {
+                self.navbarcolor("unset");
+                self.navbartitle("Safety Printer: Normal operation");
+            }
+        };
 
         // ************* Functions for general buttons:
 
         self.connectBtn = function() {
+            if (self.debug) {console.log("connectBtn")};
             // Connects or disconnects to the Safety Printer Arduino
             if (self.notConnected()) {
                 self.connection("Connecting");
-                self.connectionColor("");
+                //self.connectionColor("");
                 OctoPrint.simpleApiCommand("SafetyPrinter", "reconnect");    
             } else {
                 self.connection("Disconecting");
-                self.connectionColor("");                
+                //self.connectionColor("");                
                 OctoPrint.simpleApiCommand("SafetyPrinter", "disconnect");    
             }
 
         };
 
         // ************* Function to manage plug-in messages
-
+       
         self.onDataUpdaterPluginMessage = function(plugin, data) {
-          
+            if (self.debug) {console.log("onDataUpdaterPluginMessage: " + data.type)};
             if (plugin != "SafetyPrinter") {
                 return;
             }
 
-            if ((data.type == "statusUpdate") && (self.notConnected() == false)) {
+            if (data.type == "statusUpdate") {
             // Update all sensors status
                 var i = parseInt(data.sensorIndex);
-                self.numOfSensors = parseInt(data.sensorNumber);
-                if (i >=0 || i < 8) {
-                                        
-                    self.spSensors()[i].visible(true);
+                self.numOfSensors = parseInt(data.totalSensors);
+
+                if (i >=0 || i < 8) {                                        
+                    
+                    self.spSensors()[i].visible(true);                    
                     self.spSensorsSettings()[i].visible(true);                    
                     self.spSensors()[i].label(data.sensorLabel);
                     self.spSensorsSettings()[i].label(data.sensorLabel);
@@ -631,22 +713,18 @@ $(function() {
                 }
                 if (self.updateSettingsSensors) {
                     self.updateSettingsSensors = false;
-                    self.onSettingsShown();
-                } 
+                    if (self.settingsVisible) {
+                        self.refreshSettings();
+                    }
+                }
             } 
 
             else if (data.type == "interlockUpdate") {
             // Update interlock (trip) status
                 if (data.interlockStatus == "F") {
-                    self.interlock("Normal");
-                    self.interlockColor("");
-                    self.tripBtnVisible(false)
+                    self.interlock(false);
+                    self.updateNavbar('Trip',false)
 
-                    if (!self.activeError) {
-                        self.navbarcolor("unset");
-                        self.navbartitle("Safety Printer: Normal operation");
-                    }                    
-                    
                     self.activeSensors = "";
 
                 } else {
@@ -667,14 +745,9 @@ $(function() {
                         self.tripPopup.get().on('pnotify.cancel');
                     }
 
-                    self.interlock("TRIP");
-                    self.interlockColor("red");
-                    self.tripBtnVisible(true);
-
-                    self.navbarcolor("red");
-                    self.navbartitle("Safety Printer: TRIP!");
-                }
-                
+                    self.interlock(true);
+                    self.updateNavbar('Trip',true)
+                }                
             }
 
             else if (data.type == "connectionUpdate") {
@@ -685,25 +758,26 @@ $(function() {
                     percent = (parseInt(data.badmsgs)/parseInt(data.totalmsgs))*100;
                     self.badMsgs(data.badmsgs + " - " + percent.toFixed(1) + "%"); 
                 }
-
+                
                 if (data.connectionStatus && self.notConnected()) {
                     self.connection("Online");
-                    self.connectionColor("");
+                    //self.connectionColor("");
                     self.connectionCaption("Disconnect");
                     self.notConnected(false);
                     self.connectedPort(data.port);
+                    self.updateNavbar('Offline',false)
                     
-                    //Update Settings tab
-                    self.onSettingsShown();  
+                     //Update Settings tab
+                    if (self.settingsVisible) {
+                        self.refreshSettings();
+                    }  
 
-                } else if (!data.connectionStatus && !self.notConnected()) {
+                } else if ((!data.connectionStatus && !self.notConnected()) || (data.failure)) {
                     self.connection("Offline");
-                    self.connectionColor("#EB9605");
                     self.connectionCaption("Connect");
                     self.notConnected(true); 
 
-                    self.navbarcolor("#EB9605");
-                    self.navbartitle("Safety Printer: Offline");
+                    self.updateNavbar('Offline',true)
 
                     self.FWVersion("");
                     self.FWReleaseDate("");
@@ -733,8 +807,7 @@ $(function() {
             }
 
             else if (data.type == "terminalUpdate") {
-            // Update messages displayed on settings terminal
-                
+            // Update messages displayed on settings terminal                
                 data.line.replace(/[\n\r]+/g, '');
                 self.terminalLines.push(new TerminalViewModel(data.line,data.terminalType));
                 self.countTerminalLines++;
@@ -742,7 +815,7 @@ $(function() {
                 if (self.countTerminalLines > 3600) {
                     self.terminalLines.shift(); //removes the first line
                 }
-                if (self.autoscrollEnabled()) {
+                if (self.autoscrollEnabled() && $("#SafetyPrinterTerminal").is(':visible') && OctoPrint.coreui.browserTabVisible) {
                     self.scrollToEnd();
                 }
 
@@ -779,21 +852,16 @@ $(function() {
                 self.MCUAvgTime(data.avgTime);
             }
             else if (data.type == "error") {
-                self.navbarcolor("red");
-                self.navbartitle("Safety Printer: Error");
+                self.updateNavbar('Error',true)
                 self.errorPopupOptions.text = data.errorMsg;
                 self.errorPopup = new PNotify(self.errorPopupOptions);
                 self.errorPopup.get().on('pnotify.cancel');
-                self.activeError = true;
             }
             else if (data.type == "warning") {
-                
-                self.navbarcolor("#EB9605");
-                self.navbartitle("Safety Printer: Warning");
+                self.updateNavbar('Warning',true)
                 self.warningPopupOptions.text = data.warningMsg;
                 self.warningPopup = new PNotify(self.warningPopupOptions);
                 self.warningPopup.get().on('pnotify.cancel');
-                self.activeError = true;
             }
 
         };
@@ -802,7 +870,7 @@ $(function() {
             self.timeoutPopup.remove();
             self.timeoutPopup = undefined;
             OctoPrint.simpleApiCommand("SafetyPrinter", "abortShutdown");
-        }
+        };
     }
 
     OCTOPRINT_VIEWMODELS.push({

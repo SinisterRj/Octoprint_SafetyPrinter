@@ -26,7 +26,14 @@
  * 4) Add BAUD rate to settings tab,
  * 5) More Themeify and UI Customizer friendly,
  * 6) Remake terminal filters;
- *
+ * 7) Include terminal local commands (@connect, @disconnect);
+ * 8) Include Alrms and Trips on terminal;
+ * 9) Python-JS messages sanitization;
+ * 10) Fix bug that writes eeprom after first change, with settings multiple changes;
+ * 11) Fix bug that keeps "Connecting" status if connection fails;
+ * 12) Remove unnecessary Knockout bindings;
+ * 13) Include a better navibar icon management.
+ * 
 
  '''
 
@@ -85,11 +92,12 @@ class SafetyPrinterPlugin(
 
     def updateStatus(self):
         # Update UI status (connection, trip and sensors)
-        self.conn.update_ui_connection_status()
-        if self.conn.is_connected():
-            self.conn.update_ui_status()
-        else:
-            self._commTimer.cancel()
+        if self.conn:
+            self.conn.update_ui_connection_status()
+            if self.conn.is_connected():
+                self.conn.update_ui_status()
+            else:
+                self._commTimer.cancel()
 
     # ~~ StartupPlugin mixin
     def on_startup(self, host, port):
@@ -137,7 +145,7 @@ class SafetyPrinterPlugin(
     def get_settings_defaults(self):
         return dict(
             serialport="AUTO",
-            BAUDRate="115200",
+            BAUDRate="38400",
             abortTimeout = 30,
             rememberCheckBox = False,
             lastCheckBoxValue = False,
@@ -235,7 +243,9 @@ class SafetyPrinterPlugin(
             enableShutdown=[],
             disableShutdown=[],
             abortShutdown=[],
-            refreshMCUStats=[]
+            refreshMCUStats=[],
+            forceRenew=[],
+            settingsVisible=["status"]
         )
 
     def on_api_command(self, command, data):
@@ -270,6 +280,10 @@ class SafetyPrinterPlugin(
                 self.abortShutdown()
             elif command == "refreshMCUStats":
                 self.refreshMCUStats()
+            elif command == "forceRenew":
+                self.forceRenew()
+            elif command == "settingsVisible":
+                self.settingsVisible(bool(data["status"]))
             response = "POST request (%s) successful" % command
             return flask.jsonify(response=response, data=data, status=200), 200
         except Exception as e:
@@ -278,47 +292,55 @@ class SafetyPrinterPlugin(
             return flask.jsonify(error=error, status=500), 500
 
     def resetTrip(self):
-        if self.conn.is_connected():
-            self._console_logger.info("Resseting ALL trips.")
-            self.conn.newSerialCommand("<C1>")
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Resseting ALL trips.")
+                self.conn.newSerialCommand("<C1>")
             
     def sendTrip(self):
-        if self.conn.is_connected():
-            self._console_logger.info("Virtual Emergency Button pressed.")            
-            self.conn.newSerialCommand("<C2>")
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Virtual Emergency Button pressed.")            
+                self.conn.newSerialCommand("<C2>")
 
     def toggleEnabled(self, index, status):
-        if self.conn.is_connected():
-            if status == "on":
-                self._console_logger.info("Enabling sensor #" + str(index))
-            else:
-                self._console_logger.info("Disabling sensor #" + str(index))
-            self.conn.newSerialCommand("<C3 " + str(index) + " " + status + ">")
+        if self.conn:
+            if self.conn.is_connected():
+                if status == "on":
+                    self._console_logger.info("Enabling sensor #" + str(index))
+                else:
+                    self._console_logger.info("Disabling sensor #" + str(index))
+                self.conn.newSerialCommand("<C3 " + str(index) + " " + status + ">")
 
     def changeSP(self, index, newSP):
-        if self.conn.is_connected():
-            self._console_logger.info("Changing sensor #" + str(index) + " setpoint to:" + newSP)
-            self.conn.newSerialCommand("<C4 " + str(index) + " " + newSP + ">")
+        if self.conn:            
+            if self.conn.is_connected():
+                self._console_logger.info("Changing sensor #" + str(index) + " setpoint to:" + newSP)
+                self.conn.newSerialCommand("<C4 " + str(index) + " " + newSP + ">")
 
     def changeTimer(self, index, newTimer):
-        if self.conn.is_connected():
-            self._console_logger.info("Changing sensor #" + str(index) + " timer to:" + newTimer)
-            self.conn.newSerialCommand("<C7 " + str(index) + " " + newTimer + ">")
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Changing sensor #" + str(index) + " timer to:" + newTimer)
+                self.conn.newSerialCommand("<C7 " + str(index) + " " + newTimer + ">")
 
     def sendCommand(self,newCommand):
-        if self.conn.is_connected():
-            self._console_logger.info("Sending terminal command: " + newCommand)
-            self.conn.newSerialCommand(newCommand)
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Sending terminal command: " + newCommand)
+                self.conn.newSerialCommand(newCommand)
     
     def resetSettings(self, index):
-        if self.conn.is_connected():
-            self._console_logger.info("Loading sensor #" + str(index) + " default configurations.")
-            self.conn.newSerialCommand("<C8 " + str(index) + ">")
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Loading sensor #" + str(index) + " default configurations.")
+                self.conn.newSerialCommand("<C8 " + str(index) + ">")
 
     def saveEEPROM(self):
-        if self.conn.is_connected():
-            self._console_logger.info("Saving configuration to EEPROM.")
-            self.conn.newSerialCommand("<C5>")
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Saving configuration to EEPROM.")
+                self.conn.newSerialCommand("<C5>")
 
     def toggleShutdown(self):
         self.lastCheckBoxValue = self._automatic_shutdown_enabled
@@ -348,9 +370,20 @@ class SafetyPrinterPlugin(
         self._console_logger.info("Shutdown aborted.")
     
     def refreshMCUStats(self):
-        if self.conn.is_connected():
-            self._console_logger.info("Refreshing MCU status.")
-            self.conn.update_MCU_Stats()
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Refreshing MCU status.")
+                self.conn.update_MCU_Stats()
+
+    def forceRenew(self):
+        if self.conn:
+            self.conn.forceRenew = True
+            self.conn.forceRenewConn = True
+            self.conn.terminal("Renew UI status.","INFO")
+
+    def settingsVisible(self,status):
+        if self.conn:
+            self.conn.settingsVisible = status
 
     def on_event(self, event, payload):
 
