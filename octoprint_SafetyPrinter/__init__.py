@@ -19,7 +19,7 @@
  * Change log:
  *
  * Version 1.1.0
- * 09/06/2021
+ * 17/06/2021
  * 1) Include CRC check from <r1>, <r2>, <r4> and <r5> command responses (communication protocol rev. 2),
  * 2) Improve logging and notifications,
  * 3) Add MCU info to settings tab,
@@ -27,12 +27,21 @@
  * 5) More Themeify and UI Customizer friendly,
  * 6) Remake terminal filters;
  * 7) Include terminal local commands (@connect, @disconnect);
- * 8) Include Alrms and Trips on terminal;
+ * 8) Include Alarms and Trips on terminal;
  * 9) Python-JS messages sanitization;
  * 10) Fix bug that writes eeprom after first change, with settings multiple changes;
  * 11) Fix bug that keeps "Connecting" status if connection fails;
  * 12) Remove unnecessary Knockout bindings;
  * 13) Include a better navibar icon management.
+ * 14) Adds emoji to terminal;
+ * 15) Warns user if selected port is printer port;
+ * 16) Allow user defined serial port;
+ * 17) Dynamicaly changes terminal lenght based on window lenght;
+ * 18) Terminal checks for commands endmarks on user sended strings;
+ * 19) Fix some bugs on shutdonw warning banner;
+ * 20) Adds terminal command history;
+ * 21) Fix a bug that saves wrong sensor data when connect thru setting tab and hit save;
+ * 22) Fix a bug that warns disconnection as communication fault.
  * 
 
  '''
@@ -71,11 +80,6 @@ class SafetyPrinterPlugin(
         self._abort_timer = None
         self._wait_for_timelapse_timer = None
         self.loggingLevel = 0
-        #self.FWVersion = "" 
-        #self.FWReleaseDate = "" 
-        #self.FWEEPROM = "" 
-        #self.FWCommProtocol = ""
-        #self.FWValidVersion = False
 
     def initialize(self):
         self._console_logger = logging.getLogger("octoprint.plugins.safetyprinter")
@@ -92,7 +96,7 @@ class SafetyPrinterPlugin(
 
     def updateStatus(self):
         # Update UI status (connection, trip and sensors)
-        if self.conn:
+        if self.conn:            
             self.conn.update_ui_connection_status()
             if self.conn.is_connected():
                 self.conn.update_ui_status()
@@ -139,6 +143,7 @@ class SafetyPrinterPlugin(
     def on_shutdown(self):
         self._console_logger.info("Disconnectig Safety Printer MCU...")
         self._commTimer.cancel()
+        self.conn.abortSerialConn = True
         self.conn.closeConnection()
                             
     ##~~ SettingsPlugin mixin    
@@ -153,6 +158,8 @@ class SafetyPrinterPlugin(
             showTerminal = False,
             loggingLevel = "INFO",
             notifyWarnings = True,
+            useEmoji = True,
+            additionalPort = "",
         )
 
     def on_settings_save(self, data):
@@ -174,6 +181,8 @@ class SafetyPrinterPlugin(
         self._console_logger.debug("showTerminal: %s" % self.showTerminal)
         self._console_logger.debug("loggingLevel: %s" % self.loggingLevel)
         self._console_logger.debug("notifyWarnings: %s" % self._settings.get(["notifyWarnings"]))
+        self._console_logger.debug("useEmoji: %s" % self._settings.get(["useEmoji"]))
+        self._console_logger.debug("additionalPort: %s" % self._settings.get(["additionalPort"]))
 
     def get_template_vars(self):
         return dict(
@@ -193,7 +202,8 @@ class SafetyPrinterPlugin(
     def get_assets(self):
         return dict(
             js=["js/SafetyPrinter.js"],
-            css=["css/SafetyPrinter.css"],
+            css=["css/SafetyPrinter.css"] #,
+            #less=["less/SafetyPrinter.less"]
           )
 
     ##~~ Softwareupdate hook
@@ -294,6 +304,7 @@ class SafetyPrinterPlugin(
     def resetTrip(self):
         if self.conn:
             if self.conn.is_connected():
+                self.conn.resetTrip()
                 self._console_logger.info("Resseting ALL trips.")
                 self.conn.newSerialCommand("<C1>")
             

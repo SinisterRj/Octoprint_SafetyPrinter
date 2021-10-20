@@ -33,7 +33,7 @@ if ((sys.platform == 'linux') or (sys.platform =='linux2')):
 class Connection():
     def __init__(self, plugin):
 
-        self.compatibleFirmwareCommProtocol = ["2"]
+        self.compatibleFirmwareCommProtocol = ["3"]
 
         # Serial connection variables
         self.ports = []
@@ -45,9 +45,12 @@ class Connection():
         self.totalmsgs = 0
         self.badmsgs = 0
         self.connFail = False
+        self.abortSerialConn = False
 
         # Arrays for sensor status:
         self.interlockStatus = "F"
+        self.tripReseted = False
+        self.tripMsgcount = 0
         self.sensorLabel = []
         self.sensorEnabled = []
         self.sensorActive = []
@@ -55,12 +58,12 @@ class Connection():
         self.sensorType = []
         self.sensorSP = []
         self.sensorTimer = []
-        self.sensorSpare1 = []
-        self.sensorSpare2 = []
-        self.sensorSpare3 = []
-        self.sensorSpare4 = []
-        self.lastStatus = []
-
+        self.sensorForceDisable = []
+        self.sensorTrigger = []
+        self.sensorLowSP = []
+        self.sensorHighSP = []
+        self.sensorAlreadyNotifiedAlarm = []
+        
         self.totalSensorsInitial = 0
         self.totalSensors = 0
         self.forceRenew = False
@@ -105,17 +108,26 @@ class Connection():
         # Connects to Safety Printer Arduino through serial port
         #self._console_logger.info("Connecting...")
         self.connFail = False
+        self.abortSerialConn = False
         self.terminal("Connecting...","Info")
-        self.ports = self.getAllPorts()
+        #self.ports = self.getAllPorts()
         #self._console_logger.info("Potential ports: %s" % self.ports)
-        self.terminal("Potential ports: %s" % self.ports,"Info")
-        
-        if ((self._printer.get_current_connection()[1] == None) and (self._settings.get(["serialport"]) == "AUTO")):
-            self.forceRenewConn = True
-            self.connFail = True
-            self.terminal("Can't connect on AUTO serial port if printer is not connected. Aborting Safety Printer MCU connection.","WARNING")
-            self.update_ui_connection_status()
-            return
+        #self.terminal("Potential ports: %s" % self.ports,"Info")
+
+        if (self._settings.get(["serialport"]) != "AUTO"): # and (self._settings.get(["serialport"]) not in self.ports)):
+            self.ports.append(self._settings.get(["serialport"]))
+            self.terminal("User selected port: %s" % self.ports,"Info")
+        else:
+            if (self._printer.get_current_connection()[1] == None):
+                self.forceRenewConn = True
+                self.connFail = True
+                self.terminal("Can't connect on AUTO serial port if printer is not connected. Aborting Safety Printer MCU connection.","WARNING")
+                self.update_ui_connection_status()
+                return
+            else:
+                self.ports = self.getAllPorts()
+                #self._console_logger.info("Potential ports: %s" % self.ports)
+                self.terminal("Potential ports: %s" % self.ports,"Info")
 
         if len(self.ports) > 0:
             for port in self.ports:
@@ -124,6 +136,8 @@ class Connection():
                     if self.isPrinterPort(port,True):
                         #self._console_logger.info("Skipping Printer Port:" + port)
                         self.terminal("Skipping Printer Port:" + port,"Info")
+                        if (self._settings.get(["serialport"]) == port):
+                            self.terminal("Selected port is Printer Port. Please change it in settings:" + port,"WARNING")
                     else:
                         try:
                             self.terminal("Selected BAUD Rate:" + self._settings.get(["BAUDRate"]),"Info")
@@ -134,7 +148,7 @@ class Connection():
                         except serial.SerialException as e:
                             self.forceRenewConn = True
                             self.connFail = True
-                            self.terminal("Connection failed! " + str(e),"WARNING")
+                            self.terminal("Safety Printer MCU connection error: " + str(e),"ERROR")
                             self.update_ui_connection_status()
 
             if not self._connected:
@@ -143,23 +157,27 @@ class Connection():
                 self.terminal("Couldn't connect on any port.","WARNING")
                 self.update_ui_connection_status()
             else:
-                self.terminal("Waiting Safety Printer MCU answer...","Info")
-                responseStr = self.serialConn.readline().decode()
-                if responseStr:
-                    self.terminal(responseStr,"Info")
+                responseStr = "" #self.serialConn.readline().decode()
                 i = 0
-                while responseStr.find("Safety Printer MCU") == -1: # Wait for arduino boot and answer
-                    i += 1                    
-                    time.sleep(0.50)
-                    responseStr = self.serialConn.readline().decode() 
-                    if responseStr:
-                        self.terminal(responseStr,"Info")   
-                    if i > 20:
-                        self.forceRenewConn = True
-                        self.connFail = True
-                        self.terminal("Safety Printer MCU connection error.","ERROR")
-                        self.closeConnection()
-                        return
+                try:
+                    while responseStr.find("Safety Printer MCU") == -1: # Wait for arduino boot and answer
+                        i += 1                    
+                        time.sleep(0.50)
+                        self.terminal("Waiting Safety Printer MCU answer...","Info")
+                        responseStr = self.serialConn.readline().decode() 
+                        if responseStr:
+                            self.terminal(responseStr,"Info")   
+                        if i > 20:
+                            self.forceRenewConn = True
+                            self.connFail = True
+                            self.terminal("Safety Printer MCU connection error: No answer.","ERROR")
+                            self.closeConnection()
+                            return
+                except UnicodeDecodeError as e: #serial.SerialTimeoutException as e:
+                    self.forceRenewConn = True
+                    self.connFail = True
+                    self.terminal("Safety Printer MCU connection error: " + str(e),"ERROR")
+                    self.closeConnection()
 
                 self.terminal("Safety Printer MCU connected.","Info")
                 self.totalmsgs = 0
@@ -187,6 +205,7 @@ class Connection():
                             self.FWValidVersion = True
 
                     if self.FWValidVersion:
+                        self.forceRenewConn = True
                         self.update_ui_connection_status()
                     else:
                         self.forceRenewConn = True
@@ -300,6 +319,10 @@ class Connection():
     def is_connected(self):
         return self._connected
 
+    def resetTrip(self):
+        self.tripReseted = True
+        self.tripMsgcount = 0
+
     # *******************************  Functions to update info on knockout interface
 
     def update_ui_ports(self):
@@ -329,8 +352,18 @@ class Connection():
                 return
 
             buffer = self.interlockStatus
-            self.interlockStatus = responseStr[3]            
-            if ((self.interlockStatus != buffer) or (self.forceRenew)):
+            self.interlockStatus = responseStr[3] 
+            if self.tripReseted:
+                #wait 5 msgs after trip reset to consider a new trip if there is no change (user reseted with an alarm)
+                self.tripMsgcount += 1
+
+            # Prevent tripMsgCount overflow 
+            if self.tripMsgcount > 10:
+                self.tripMsgcount = 5 
+
+            if ((self.interlockStatus != buffer) or (self.forceRenew) or (self.tripMsgcount > 5)):
+                self.tripReseted = False
+                self.tripMsgcount = 0
                 if (self.interlockStatus == "T"):
                     self.terminal("New INTERLOCK detected.","TRIP")
                 self._plugin_manager.send_plugin_message(self._identifier, {"type": "interlockUpdate", "interlockStatus": self.interlockStatus})
@@ -370,7 +403,7 @@ class Connection():
                 
                 if (index >= 0 and index < totalSensors):
 
-                    originalCRC = self.crc16(self.sensorEnabled[index] + self.sensorActive[index] + self.sensorActualValue[index] + self.sensorSP[index] + self.sensorTimer[index] + self.sensorSpare1[index] + self.sensorSpare3[index])
+                    originalCRC = self.crc16(self.sensorEnabled[index] + self.sensorActive[index] + self.sensorActualValue[index] + self.sensorSP[index] + self.sensorTimer[index] + self.sensorTrigger[index])
 
                     vpos1 = vpos2 + 1
                     vpos2 = responseStr.find(',',vpos1)
@@ -389,23 +422,21 @@ class Connection():
                     self.sensorTimer[index] = responseStr[vpos1:vpos2]
                     vpos1 = vpos2 + 1
                     vpos2 = responseStr.find(',',vpos1)
-                    self.sensorSpare1[index] = responseStr[vpos1:vpos2]
-                    vpos1 = vpos2 + 1
-                    vpos2 = responseStr.find(',',vpos1)
-                    self.sensorSpare3[index] = responseStr[vpos1:vpos2]
-                    vpos1 = vpos2 + 1
+                    self.sensorTrigger[index] = responseStr[vpos1:vpos2]
 
-                    newCRC = self.crc16(self.sensorEnabled[index] + self.sensorActive[index] + self.sensorActualValue[index] + self.sensorSP[index] + self.sensorTimer[index] + self.sensorSpare1[index] + self.sensorSpare3[index])
+                    newCRC = self.crc16(self.sensorEnabled[index] + self.sensorActive[index] + self.sensorActualValue[index] + self.sensorSP[index] + self.sensorTimer[index] + self.sensorTrigger[index])
 
                     if ((originalCRC != newCRC) or (self.forceRenew)):   #avoid sending multiple msgs
-                        if (self.lastStatus[index] != self.sensorActive[index]) and (self.sensorActive[index] == "T"):
+                        self._plugin_manager.send_plugin_message(self._identifier, {"type": "statusUpdate", "sensorIndex": index, "totalSensors": totalSensors, "sensorLabel": self.sensorLabel[index], "sensorEnabled": self.sensorEnabled[index], "sensorActive": self.sensorActive[index], "sensorActualValue": self.sensorActualValue[index], "sensorType": self.sensorType[index], "sensorSP": self.sensorSP[index], "sensorTimer": self.sensorTimer[index], "sensorForceDisable": self.sensorForceDisable[index], "sensorTrigger": self.sensorTrigger[index], "sensorLowSP": self.sensorLowSP[index], "sensorHighSP": self.sensorHighSP[index]})
+                        if (self.sensorActive[index] == "T" and not self.sensorAlreadyNotifiedAlarm[index]):
+                            self.sensorAlreadyNotifiedAlarm[index] = True
                             if (self.sensorEnabled[index] == "T"):
                                 self.terminal("New Alarm detected: "+ str(self.sensorLabel[index]) + " (" + str(self.sensorActualValue[index])+ ")","ALARM")
                             else :
-                                self.terminal("New Alarm detected (disabled sensor): "+ str(self.sensorLabel[index]) + " (" + str(self.sensorActualValue[index])+ ")","INFO")
+                                self.terminal("New Alarm detected (disabled sensor): "+ str(self.sensorLabel[index]) + " (" + str(self.sensorActualValue[index])+ ")","INFO")                        
+                        elif (self.sensorActive[index] == "F"):
+                            self.sensorAlreadyNotifiedAlarm[index] = False
 
-                        self.lastStatus[index] = self.sensorActive[index]
-                        self._plugin_manager.send_plugin_message(self._identifier, {"type": "statusUpdate", "sensorIndex": index, "totalSensors": totalSensors, "sensorLabel": self.sensorLabel[index], "sensorEnabled": self.sensorEnabled[index], "sensorActive": self.sensorActive[index], "sensorActualValue": self.sensorActualValue[index], "sensorType": self.sensorType[index], "sensorSP": self.sensorSP[index], "sensorTimer": self.sensorTimer[index]})
             if (self.forceRenew): # send all msgs again to update UI
                 self.forceRenew = False
         else :
@@ -442,19 +473,23 @@ class Connection():
                 self.sensorType.append(responseStr[vpos1:vpos2])
                 vpos1 = vpos2 + 1
                 vpos2 = responseStr.find(',',vpos1)
-                self.sensorSpare2.append(responseStr[vpos1:vpos2])
+                self.sensorForceDisable.append(responseStr[vpos1:vpos2])
                 vpos1 = vpos2 + 1
                 vpos2 = responseStr.find(',',vpos1)
-                self.sensorSpare4.append(responseStr[vpos1:vpos2])
+                self.sensorLowSP.append(responseStr[vpos1:vpos2])
                 vpos1 = vpos2 + 1
-                self.lastStatus.append("F")
+                vpos2 = responseStr.find(',',vpos1)
+                self.sensorHighSP.append(responseStr[vpos1:vpos2])
+
+                
+                self.sensorTrigger.append("F")
                 self.sensorEnabled.append("")
                 self.sensorActive.append("")
                 self.sensorActualValue.append("")
                 self.sensorSP.append("")
                 self.sensorTimer.append("")
-                self.sensorSpare1.append("")
-                self.sensorSpare3.append("")
+                self.sensorAlreadyNotifiedAlarm.append(False)
+
             else :
                 self.sensorLabel[index] = responseStr[vpos1:vpos2]
                 vpos1 = vpos2 + 1
@@ -462,27 +497,30 @@ class Connection():
                 self.sensorType[index] = responseStr[vpos1:vpos2]
                 vpos1 = vpos2 + 1
                 vpos2 = responseStr.find(',',vpos1)
-                self.sensorSpare2[index] = responseStr[vpos1:vpos2]
+                self.sensorForceDisable[index] = responseStr[vpos1:vpos2]
                 vpos1 = vpos2 + 1
                 vpos2 = responseStr.find(',',vpos1)
-                self.sensorSpare4[index] = responseStr[vpos1:vpos2]
+                self.sensorLowSP[index] = responseStr[vpos1:vpos2]
                 vpos1 = vpos2 + 1
-                self.lastStatus[index] = "F"
+                vpos2 = responseStr.find(',',vpos1)
+                self.sensorHighSP[index] = responseStr[vpos1:vpos2]
+
+                self.sensorTrigger[index] = "F"
                 self.sensorEnabled[index] = ""
                 self.sensorActive[index] = ""
                 self.sensorActualValue[index] = ""
                 self.sensorSP[index] = ""
                 self.sensorTimer[index] = ""
-                self.sensorSpare1[index] = ""
-                self.sensorSpare3[index] = ""
+                self.sensorAlreadyNotifiedAlarm[index] = False
 
     def update_ui_connection_status(self):
         # Updates knockout connection status
 
         if ((self.settingsVisible) or (self.forceRenewConn)):
-            self.forceRenewConn = False
             self._plugin_manager.send_plugin_message(self._identifier, {"type": "connectionUpdate", "connectionStatus": self._connected, "port": self.connectedPort, "totalmsgs": self.totalmsgs, "badmsgs": self.badmsgs, "failure" : self.connFail})    
-            self._plugin_manager.send_plugin_message(self._identifier, {"type": "firmwareInfo", "version": self.FWVersion, "releaseDate": self.FWReleaseDate, "EEPROM": self.FWEEPROM, "CommProtocol":self.FWCommProtocol, "ValidVersion": self.FWValidVersion})
+            if (self.forceRenewConn):
+                self.forceRenewConn = False
+                self._plugin_manager.send_plugin_message(self._identifier, {"type": "firmwareInfo", "version": self.FWVersion, "releaseDate": self.FWReleaseDate, "EEPROM": self.FWEEPROM, "CommProtocol":self.FWCommProtocol, "ValidVersion": self.FWValidVersion})
         else:
             if self.lastConnected != self._connected:
                 self.lastConnected = self._connected
@@ -563,17 +601,30 @@ class Connection():
     def newSerialCommand(self,serialCommand):
         # Used for 1 time only commands. Keeps tring if no arduino response 
         i = 0
-        responseStr = self.send_command(serialCommand,False)
-        while ((responseStr == "Error") or (not responseStr)):
-            time.sleep(0.5)
-            i += 1            
-            if i > 0:
-                self.terminal("newSerialCommand:Serial port is busy or bad answer. Retring command:" + serialCommand + " x" + str(i),"DEBUG")
-            if i >= 10:
-                self.closeConnection()
-                break
-            responseStr = self.send_command(serialCommand,True)
-        return responseStr
+        vpos1 = serialCommand.find('<',0)
+        vpos2 = serialCommand.find('>',0)
+        if ((vpos1 > -1) and  (vpos2 > -1) and (vpos2 - vpos1 > 1)):
+            while self.waitingResponse:
+                self.terminal("newSerialCommand: Waiting serial availability.","DEBUG")
+                time.sleep(0.5)
+                i += 1  
+                if i >= 20:
+                    self.terminal("newSerialCommand: Serial availability time out. Closing connection.","DEBUG")
+                    self.closeConnection()
+                    return
+            responseStr = self.send_command(serialCommand,False)
+            while ((responseStr == "Error") or (not responseStr)) and (not self.abortSerialConn):
+                time.sleep(0.5)
+                i += 1            
+                if i > 0:
+                    self.terminal("newSerialCommand:Serial port is busy or bad answer. Retring command:" + serialCommand + " x" + str(i),"DEBUG")
+                if i >= 10:
+                    self.closeConnection()
+                    break
+                responseStr = self.send_command(serialCommand,True)
+            return responseStr
+        else:
+            self.terminal("'" + serialCommand + "' is not a valid command.","WARNING")
 
 
     def crc16(self, data: str):
@@ -613,14 +664,15 @@ class Connection():
         # Checks CRC from received msg
 
         self.totalmsgs += 1
-        vpos1 = data.find('$',0)        
-        arduinoCRC = int(data[0:vpos1])
-        payload = data[vpos1+1:len(data)]
+        vpos1 = data.find('$',0)  
+        vpos2 = data.find('$',vpos1+1)      
+        arduinoCRC = int(data[vpos1+1:vpos2])
+        payload = data[vpos2+1:len(data)]
         calculatedCRC = self.crc16(payload)
-        self.terminal("crcCheck:arduinoCRC:" + str(arduinoCRC) + " calculatedCRC:" + str(calculatedCRC) + " payload:" + payload,"DEBUG")
         if arduinoCRC == calculatedCRC:  
-            return payload
+            return data[0:vpos1] + payload
         else:
+            self.terminal("crcCheck:BAD CRC: arduinoCRC:" + str(arduinoCRC) + " calculatedCRC:" + str(calculatedCRC) + " payload:" + payload,"DEBUG")
             self.badmsgs += 1
             return False
 
@@ -628,18 +680,14 @@ class Connection():
     def send_command(self, command, retry):
         # send serial commands to arduino and receives the answer
 
-        if self.is_connected():
+        if self.is_connected() and not self.abortSerialConn:
             try:
                 self.serialConn.flush()
-                if not retry:
-                    self.terminal(command.strip(), "Send")
-                else:
-                    self.terminal("send_command:Resend: " + command.strip(), "DEBUG")
-                
                 if not self.waitingResponse and self.is_connected():
+                    self.terminal(command.strip(), "Send")
                     self.serialConn.write(command.encode())
                 else:
-                    self.terminal("send_command:Can't write error", "DEBUG")
+                    self.terminal("send_command:["+ command +"] Serial port busy.", "DEBUG")
                     return "Error"                
                 
                 self.waitingResponse = True                    
@@ -661,25 +709,37 @@ class Connection():
                         data = self.crcCheck(data)
                         if not data:
                             self.waitingResponse = False
-                            self.terminal("send_command:Bad CRC.", "DEBUG")
+                            self.terminal("send_command:["+ command +"] Bad CRC.", "DEBUG")
                             return "Error"
 
-                    self.terminal(data, "Recv") 
+                    self.terminal(data, "Recv")
+
+                    vpos1 = command.find('<',0)
+                    vpos2 = command.find('>',0)
+                    vpos3 = command.find(' ',0)
+                    if vpos3 > -1:
+                        sendedCmd = command[vpos1+1:vpos3]
+                    else:
+                        sendedCmd = command[vpos1+1:vpos2]
+
+                    vpos1 = data.find(':',0)
+                    receivedCmd = data[0:vpos1]
                     
-                    if data[0:2] == command[1:3]:
+                    if receivedCmd == sendedCmd:
                         self.waitingResponse = False
                         return str(data)
                     else:
-                        self.terminal("send_command:Answer ("+ data[0:2] +") doesn't contains command ID:" + command[1:3], "DEBUG")
+                        self.terminal("send_command:Answer ("+ receivedCmd +") doesn't contains command ID:" + sendedCmd, "DEBUG")
                         return "Error"
                 else:
-                    self.terminal("send_command: Received no data", "DEBUG")
+                    self.terminal("send_command:["+ command +"] Received no data", "DEBUG")
                     return "Error"  
             
             except (serial.SerialException, termios.error): #, termios.error):
                 self.waitingResponse = False
-                self.terminal("Safety Printer communication error.", "ERROR")
-                self.closeConnection()                    
+                if (not self.abortSerialConn) :
+                    self.terminal("Safety Printer communication error.", "ERROR")                
+                    self.closeConnection()         
                 return "Error"
 
         else:

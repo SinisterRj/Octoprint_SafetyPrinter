@@ -1,26 +1,25 @@
 <h3>Safety Printer Terminal</h3>
 <div class="terminal">
     <pre id="SafetyPrinterTerminal" class="pre-scrollable pre-output" data-bind="foreach: displayedLines, click: function(){ gotoTerminalCommand(); }, event: { scroll: terminalScrollEvent }, style: {color: terminalColor(), background: terminalBg()}"><span data-bind="text: type() ? type() + ': ' + line() : line(), style: {color: line() == '[...]'? 'lightgray' : ''}"></span></pre>
-    <div>
-        <div class="input-block-level input-append">
-            <input type="text" id="SPterminal-command" data-bind="value: command, enable:!notConnected()">
-            <a href="#" class="btn add-on" id="SPterminal-send" data-bind="click: sendCommandBtn, enable:!notConnected()">Send</a>
-        </div>
+    <div class="input-block-level input-append">
+        <input type="text" id="SPterminal-command" data-bind="value: command, enable:!notConnected()">
+        <a href="#" class="btn add-on" id="SPterminal-send" data-bind="click: sendCommandBtn, enable:!notConnected()">{{ _('Send') }}</a>
     </div>
+    <a href="#" class="btn add-on" id="SPterminal-previous" data-bind="click: previousCommand" style="visibility: hidden;"></a>
+    <a href="#" class="btn add-on" id="SPterminal-next" data-bind="click: nextCommand" style="visibility: hidden;"></a>
     <small id="terminal-autoscroll-panel" class="pull-left">
-        <button class="btn btn-mini terminal-autoscroll" data-bind="click: toggleAutoscrollBtn, css: {active: autoscrollEnabled}">Autoscroll</button><span data-bind="visible: !autoscrollEnabled()" style="display: none">(<a href="javascript:void(0)" data-bind="click: scrollToEnd">Scroll to end</a>)</span>       
+        <button class="btn btn-mini terminal-autoscroll" data-bind="click: toggleAutoscrollBtn, css: {active: autoscrollEnabled}">{{ _('Autoscroll') }}</button> <span data-bind="text: lineCount"></span><span data-bind="visible: !autoscrollEnabled()" style="display: none">(<a href="javascript:void(0)" data-bind="click: scrollToEnd">{{ _('Scroll to end') }}</a>)</span>       
     </small>
     <small id="terminal-actions-panel" class="pull-right">
         <a href="javascript:void(0)" data-bind="click: copyAll"><i class="fas fa-copy terminal-copy-all" title="{{ _('Copy all')|edq }}"></i> {{ _('Copy all') }}</a><br>
         <a href="javascript:void(0)" data-bind="click: clearAllLogs"><i class="far fa-trash-alt terminal-clear-logs" title="{{ _('Clear log window')|edq }}"></i> {{ _('Clear all') }}</a>
     </small>
 </div>
-
 <p>&nbsp;&nbsp;
 <div class="row-fluid">
     <div class="span6" id="terminal-filterpanel">
             <label class="checkbox">
-                <input type="checkbox" data-bind="checked: tempMsgFilter"> Supress status (&ltR1&gt) messages.
+                <input type="checkbox" data-bind="checked: tempMsgFilter"> {{ _('Supress status (&ltR1&gt) messages.') }}
             </label>
     </div>
 </div>
@@ -28,20 +27,24 @@
 <script type="application/javascript">
 var input = document.getElementById("SPterminal-command");
 input.addEventListener("keyup", function(event) {
-    if (event.keyCode === 13) {
+    if (event.keyCode === 13) { // [ENTER]
         event.preventDefault();
         document.getElementById("SPterminal-send").click();
+    } else if (event.keyCode === 38) { //Arrow up
+        document.getElementById("SPterminal-previous").click();      
+    } else if (event.keyCode === 40) { //Arrow down
+        document.getElementById("SPterminal-next").click();      
     }
 });
 </script>
-<i class="icon-book"></i>&nbsp;&nbsp;<h5 style="display: inline-block">Documentation</h5>
-    <p>Documentation is available on <a target="_new" href="https://github.com/SinisterRj/SafetyPrinter/wiki/Commands">Github</a></p><a target="_new" href="https://github.com/SinisterRj/SafetyPrinter/wiki/Commands"></a>
+<i class="icon-book"></i>&nbsp;&nbsp;<h5 style="display: inline-block">{{ _('Documentation') }}</h5>
+    <p>{{ _('Documentation is available on') }} <a target="_new" href="https://github.com/SinisterRj/SafetyPrinter/wiki/Commands">Github</a></p><a target="_new" href="https://github.com/SinisterRj/SafetyPrinter/wiki/Commands"></a>
 
 <div class="advanced_options">
-    <div><small><a href="#" class="muted" data-bind="toggleContent: { class: 'fa-caret-right fa-caret-down', parent: '.advanced_options', container: '.hide' }"><i class="fas fa-caret-right"></i> Advanced options</a></small></div>
+    <div><small><a href="#" class="muted" data-bind="toggleContent: { class: 'fa-caret-right fa-caret-down', parent: '.advanced_options', container: '.hide' }"><i class="fas fa-caret-right"></i> {{ _('Advanced options') }}</a></small></div>
     <div class="hide">        
         <p>  
-        <input type="checkbox" data-bind="checked: showDebug"> Show DEBUG messages.</input>
+        <input type="checkbox" data-bind="checked: showDebug"> {{ _('Show DEBUG messages.') }}</input>
         </p>
     </div>
 </div>
