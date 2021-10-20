@@ -220,13 +220,13 @@ class SafetyPrinterPlugin(
                 current=self._plugin_version,
 
                 stable_branch=dict(
-                    name="Stable", branch="master", comittish=["master"]
+                    name="Stable", branch="main", comittish=["main"]
                 ),
                 prerelease_branches=[
                     dict(
                         name="Release Candidate",
                         branch="devel",
-                        comittish=["devel", "master"],
+                        comittish=["devel", "main"],
                     )
                 ],
 
