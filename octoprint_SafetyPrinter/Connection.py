@@ -128,6 +128,16 @@ class Connection():
                 self.ports = self.getAllPorts()
                 #self._console_logger.info("Potential ports: %s" % self.ports)
                 self.terminal("Potential ports: %s" % self.ports,"Info")
+<<<<<<< Updated upstream
+=======
+
+        reconnect = None
+        if self._printer.is_operational():
+            # if an arduino nano or uno is used, it will reset upon connection, resseting the printer also.
+            _, current_port, current_baudrate, current_profile = self._printer.get_current_connection()
+            reconnect = (current_port, current_baudrate, current_profile)
+            self.terminal("Printer is operational: port={}, baudrate={}, profile={}".format(current_port, current_baudrate, current_profile),"Info")
+>>>>>>> Stashed changes
 
         if len(self.ports) > 0:
             for port in self.ports:
@@ -178,11 +188,21 @@ class Connection():
                     self.connFail = True
                     self.terminal("Safety Printer MCU connection error: " + str(e),"ERROR")
                     self.closeConnection()
+<<<<<<< Updated upstream
+=======
+
+                finally:
+                    if (reconnect is not None) and (not self._printer.is_operational()):
+                        # if printer was connectec and now isn't (due to arduino reboot), reconnect
+                        port, baudrate, profile = reconnect
+                        self.terminal("Reconnecting to printer: port={}, baudrate={}, profile={}".format(port, baudrate, profile),"Info")
+                        self._printer.connect(port=port, baudrate=baudrate, profile=profile)
+>>>>>>> Stashed changes
 
                 self.terminal("Safety Printer MCU connected.","Info")
                 self.totalmsgs = 0
                 self.badmsgs = 0
-                
+
                 responseStr = self.newSerialCommand("<R4>")
                 if ((responseStr) and (responseStr != "Error")):
                     vpos1 = responseStr.find(':',0)
