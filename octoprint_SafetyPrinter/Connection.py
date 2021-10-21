@@ -128,8 +128,6 @@ class Connection():
                 self.ports = self.getAllPorts()
                 #self._console_logger.info("Potential ports: %s" % self.ports)
                 self.terminal("Potential ports: %s" % self.ports,"Info")
-<<<<<<< Updated upstream
-=======
 
         reconnect = None
         if self._printer.is_operational():
@@ -137,7 +135,6 @@ class Connection():
             _, current_port, current_baudrate, current_profile = self._printer.get_current_connection()
             reconnect = (current_port, current_baudrate, current_profile)
             self.terminal("Printer is operational: port={}, baudrate={}, profile={}".format(current_port, current_baudrate, current_profile),"Info")
->>>>>>> Stashed changes
 
         if len(self.ports) > 0:
             for port in self.ports:
