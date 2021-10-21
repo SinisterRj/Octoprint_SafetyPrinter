@@ -174,7 +174,7 @@ class Connection():
                         responseStr = self.serialConn.readline().decode() 
                         if responseStr:
                             self.terminal(responseStr,"Info")   
-                        if i > 20:
+                        if i > 40:
                             self.forceRenewConn = True
                             self.connFail = True
                             self.terminal("Safety Printer MCU connection error: No answer.","ERROR")
@@ -188,7 +188,7 @@ class Connection():
 
                 finally:
                     if (reconnect is not None) and (not self._printer.is_operational()):
-                        # if printer was connectec and now isn't (due to arduino reboot), reconnect
+                        # if printer was connected and now isn't (due to arduino reboot), reconnect
                         self.terminal("Waiting for printer boot (10s).","Info")
                         time.sleep(10.00)
                         port, baudrate, profile = reconnect
