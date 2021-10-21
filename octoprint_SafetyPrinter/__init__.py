@@ -42,10 +42,7 @@
  * 20) Adds terminal command history;
  * 21) Fix a bug that saves wrong sensor data when connect thru setting tab and hit save;
  * 22) Fix a bug that warns disconnection as communication fault.
-<<<<<<< Updated upstream
-=======
  * 23) Reconnects printer after Safetyprinter connection.
->>>>>>> Stashed changes
  * 
 
  '''
