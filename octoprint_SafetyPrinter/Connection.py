@@ -189,6 +189,8 @@ class Connection():
                 finally:
                     if (reconnect is not None) and (not self._printer.is_operational()):
                         # if printer was connectec and now isn't (due to arduino reboot), reconnect
+                        self.terminal("Waiting for printer boot (10s).","Info")
+                        time.sleep(10.00)
                         port, baudrate, profile = reconnect
                         self.terminal("Reconnecting to printer: port={}, baudrate={}, profile={}".format(port, baudrate, profile),"Info")
                         self._printer.connect(port=port, baudrate=baudrate, profile=profile)
