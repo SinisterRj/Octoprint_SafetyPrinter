@@ -185,8 +185,6 @@ class Connection():
                     self.connFail = True
                     self.terminal("Safety Printer MCU connection error: " + str(e),"ERROR")
                     self.closeConnection()
-<<<<<<< Updated upstream
-=======
 
                 finally:
                     if (reconnect is not None) and (not self._printer.is_operational()):
@@ -194,7 +192,6 @@ class Connection():
                         port, baudrate, profile = reconnect
                         self.terminal("Reconnecting to printer: port={}, baudrate={}, profile={}".format(port, baudrate, profile),"Info")
                         self._printer.connect(port=port, baudrate=baudrate, profile=profile)
->>>>>>> Stashed changes
 
                 self.terminal("Safety Printer MCU connected.","Info")
                 self.totalmsgs = 0
