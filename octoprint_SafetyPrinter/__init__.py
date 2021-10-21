@@ -43,6 +43,7 @@
  * 21) Fix a bug that saves wrong sensor data when connect thru setting tab and hit save;
  * 22) Fix a bug that warns disconnection as communication fault.
  * 23) Reconnects printer after Safetyprinter connection.
+ * 24) Increase to 20s the printer connection timeout.
  * 
 
  '''
