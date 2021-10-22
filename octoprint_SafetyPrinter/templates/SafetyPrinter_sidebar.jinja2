@@ -1,14 +1,4 @@
-<script type="application/javascript">
-    function SafetyPrinterEBConfirmClick()
-    {
-        var result = window.confirm("Are you sure? This will STOP any printing and you will loose any running job.");
-        if (result) {
-            OctoPrint.simpleApiCommand("SafetyPrinter", "sendTrip");
-        }
-    }
-</script>
-
-<div id="SafetyPrinter">
+<div id="SafetyPrinter" >
 <div class="input-group">
   <label class="checkbox">
     <input type="checkbox" data-bind="checked: automaticShutdownEnabled">
@@ -23,12 +13,12 @@
     <col width="30%">
   </colgroup>
   <tr data-bind="visible: notConnected">
-    <td>Status: <span data-bind="style: {color: connectionColor}"><strong data-bind="text: connection"></strong></span></td>
+    <td>Status: <span data-bind="style: {color: notConnected()? '#EB9605' : 'revert'}"><strong data-bind="text: connection"></strong></span></td>
     <td style="text-align: right" colspan="2"><span data-bind="visible: notConnected"><button data-bind="click: connectBtn" class="btn">Connect</button></span></td>
   </tr> 
   <tr data-bind="hidden: notConnected">
-    <td><span data-bind="style: {color: interlockColor}">Status: <strong data-bind="text: interlock"></strong></span></td>
-    <td style="text-align: right" colspan="2"><span data-bind="visible: tripBtnVisible"><button data-bind="click: tripResetBtn" class="btn">Reset</button></span></td>
+    <td><span data-bind="style: {color: interlock()? 'red' : 'revert'}">Status: <strong data-bind="text: interlock()? 'TRIP' : 'Normal' "></strong></span></td>
+    <td style="text-align: right" colspan="2"><span data-bind="visible: interlock"><button data-bind="click: tripResetBtn" class="btn">Reset</button></span></td>
   </tr>
   <tbody data-bind="foreach: spSensors">
   <tr data-bind="visible: visible">  
@@ -39,6 +29,8 @@
 </tbody>
 </table>
 <span data-bind="hidden: notConnected">
-<center><button onclick='SafetyPrinterEBConfirmClick()' class="btn btn-danger">Emergency STOP</button></center>
+<span data-bind="visible: confirmVisible()">Are you sure? This will STOP any printing and you will loose any running job.</span>  
+<center><button data-bind="click: tripBtn, hidden: confirmVisible()" class="btn btn-danger">Emergency STOP</button></center>
+<center><button class="btn btn-danger" data-bind="click: tripConfirmBtn, visible: confirmVisible()">Confirm E. STOP</button> <button class="btn" data-bind="click: tripBtn, visible: confirmVisible()">Cancel</button>
 </span>
 </div>

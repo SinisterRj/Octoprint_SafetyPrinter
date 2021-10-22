@@ -1,5 +1,5 @@
 <h3>Configuration for Safety Printer</h3>
-<table class="SPtable-noborder">
+<table class="SPSettings">
     <tr>
         <td colspan="3">            
             </br>
@@ -7,25 +7,55 @@
         </td>
     </tr>
     <tr>
-        <td width="30%" align="right">Connection:&nbsp;&nbsp;</td>
-        <td> 
-            <span data-bind="style: {color: connectionColor}"><strong data-bind="text: connection"></strong></span>
+        <td style="width: 30%" align="right">Connection:&nbsp;&nbsp;</td>
+        <td style="width: 50%"> 
+            <span data-bind="style: {color: notConnected()? '#EB9605' : 'revert'}"><strong data-bind="text: connection"></strong></span>
         </td>
-        <td>
+        <td style="width: 20%">
             <button data-bind="click: connectBtn, text: connectionCaption" class="btn"></button>
         </td>
     </tr>
     <tr>
-        <td align="right">Actual Serial Port:&nbsp;&nbsp;</td>
+        <td style="text-align:right">Actual Serial Port:&nbsp;&nbsp;</td>
         <td> 
             <span data-bind="text: connectedPort"></span>
         </td>
         <td></td>
     </tr>
     <tr>
-        <td align="right">Default Serial Port:&nbsp;&nbsp;</td>
+        <td style="text-align:right">Default Serial Port:&nbsp;&nbsp;</td>
         <td>
-            <select data-bind="options: availablePorts, optionsText: 'name', optionsValue: 'name', value: settingsViewModel.settings.plugins.SafetyPrinter.serialport, valueAllowUnset: true, click: onStartupComplete"></select>
+            <select data-bind="options: availablePorts, optionsText: 'name', optionsValue: 'name', value: settingsViewModel.settings.plugins.SafetyPrinter.serialport, valueAllowUnset: true"></select>
+        </td>
+        <td></td>
+    </tr>
+    <tr>
+        <td style="text-align:right">Aditional Serial Port:&nbsp;&nbsp;</td>
+        <td>
+            <input type="text" class="input-block-level" data-bind="value: settingsViewModel.settings.plugins.SafetyPrinter.additionalPort"></input>
+        </td>
+        <td>
+            <button data-bind="click: addPortBtn" class="btn">Add</button>
+        </td>
+    </tr>
+    <tr>
+        <td style="text-align:right">BAUD rate:&nbsp;&nbsp;</td>
+        <td>
+            <select data-bind="value: settingsViewModel.settings.plugins.SafetyPrinter.BAUDRate, valueAllowUnset: true" title="Must SAVE to take effect.">
+                <option>2400</option>
+                <option>9600</option>
+                <option>19200</option>
+                <option>38400</option>
+                <option>57600</option>
+                <option>115200</option>
+            </select>
+        </td>
+        <td></td>
+    </tr>
+    <tr>
+        <td  style="text-align:right">Total Messages&nbsp;&nbsp;</td>
+        <td> 
+            <span data-bind="text: totalMsgs"></span> (Bad: <span data-bind="text: badMsgs"></span>)
         </td>
         <td></td>
     </tr>
@@ -36,24 +66,58 @@
         </td>
     </tr>
     <tr>
-        <td align="right">Version:&nbsp;&nbsp;</td>
-        <td><span data-bind="text: FWVersion"></td>
+        <td style="text-align:right">Version:&nbsp;&nbsp;</td>
+        <td><span data-bind="text: FWVersion"></span></td>
         <td></td>
     </tr>
     <tr>
-        <td align="right">Release date:&nbsp;&nbsp;</td>
-        <td><span data-bind="text: FWReleaseDate"></td>
+        <td style="text-align:right">Release date:&nbsp;&nbsp;</td>
+        <td><span data-bind="text: FWReleaseDate"></span></td>
         <td></td>
     </tr>
     <tr>
-        <td align="right">EEPROM version:&nbsp;&nbsp;</td>
-        <td><span data-bind="text: FWEEPROM"></td>
+        <td style="text-align:right">EEPROM version:&nbsp;&nbsp;</td>
+        <td><span data-bind="text: FWEEPROM"></span></td>
         <td></td>
     </tr>
     <tr>
-        <td align="right">Comm. protocol version:&nbsp;&nbsp;</td>
-        <td><span data-bind="text: FWCommProtocol"><i data-bind="class: FWValidVersion() ? 'fas fa-check' : 'fas fa-times', style: {color: FWValidVersion() ? 'green' : 'red'}, hidden: notConnected"></i>
+        <td style="text-align:right">Comm. protocol version:&nbsp;&nbsp;</td>
+        <td><span data-bind="text: FWCommProtocol"></span> <i data-bind="class: FWValidVersion() ? 'fas fa-check' : 'fas fa-times', style: {color: FWValidVersion() ? 'green' : 'red'}, hidden: notConnected"></i>
         </td>            
+        <td></td>
+    </tr>
+    <tr>
+        <td colspan="2">
+        </br>
+        <h4>MCU Info:</h4>        
+        </td>
+        <td style="vertical-align: bottom">
+            <button data-bind="click: refreshMCUStats, hidden: notConnected" class="btn">Refresh</button>
+        </td>
+    </tr>
+    <tr>
+        <td style="text-align:right">Supply Voltage:&nbsp;&nbsp;</td>
+        <td><span data-bind="text: MCUVolts"></span> V</td>
+        <td></td>
+    </tr>
+    <tr>
+        <td style="text-align:right">Internal Temperature:&nbsp;&nbsp;</td>
+        <td><span data-bind="text: MCUTemp"></span> °C</td>
+        <td></td>
+    </tr>
+    <tr>
+        <td style="text-align:right">Free SRAM:&nbsp;&nbsp;</td>
+        <td><span data-bind="text: MCUSRAM"></span> bytes</td>
+        <td></td>
+    </tr>
+    <tr>
+        <td style="text-align:right">Cycling time max:&nbsp;&nbsp;</td>
+        <td><span data-bind="text: MCUMaxTime"></span> µs</td>            
+        <td></td>
+    </tr>
+    <tr>
+        <td style="text-align:right">Cycling time average:&nbsp;&nbsp;</td>
+        <td><span data-bind="text: MCUAvgTime"></span> µs</td>            
         <td></td>
     </tr>
     <tr>
@@ -62,7 +126,7 @@
             <h4>Shutdown after print:&nbsp;&nbsp;<i class="fas fa-info-circle" title="Modified from: AutomaticShutdown plug-in by Nicanor Romero Venier, https://github.com/OctoPrint/OctoPrint-AutomaticShutdown."></i></h4>
         </td>
     </tr>
-    <tr><td align="right"><label class="control-label">Abort Timeout:&nbsp;&nbsp;</label></td>
+    <tr><td style="text-align:right"><label class="control-label">Abort Timeout:&nbsp;&nbsp;</label></td>
         <td>
             <div class="input-append">
                 <input type="number" class="input-mini text-right" data-bind="value: settingsViewModel.settings.plugins.SafetyPrinter.abortTimeout">
@@ -72,33 +136,31 @@
         <td></td>
     </tr>
     <tr>
-        <td></td><td>
+        <td></td><td colspan="2">
             <div class="controls">
                 <label class="checkbox">
                 <input type="checkbox" data-bind="checked: settingsViewModel.settings.plugins.SafetyPrinter.turnOffPrinter"> Turn off printer before shutdown.
                 </label>
             </div>
         </td>
-        <td></td>
     </tr>
     <tr>
-        <td></td><td>
+        <td></td><td colspan="2">
             <div class="controls">
                 <label class="checkbox">
                 <input type="checkbox" data-bind="checked: settingsViewModel.settings.plugins.SafetyPrinter.rememberCheckBox"> Save the value of "Shutdown after print finishes".
                 </label>
             </div>
         </td>
-        <td></td>
     </tr>
     <tr>
         <td colspan="3">
         </br>
-        <h4>Logging level:</h4>        
+        <h4>Logging and notification level:</h4>        
         </td>
     </tr>
     <tr>
-        <td align="right">Level:&nbsp;&nbsp;</td>
+        <td style="text-align:right">Logging Level:&nbsp;&nbsp;</td>
         <td><select data-bind="value: settingsViewModel.settings.plugins.SafetyPrinter.loggingLevel, valueAllowUnset: true">
             <option value="10">DEBUG</option>
             <option value="20">INFO</option>
@@ -108,16 +170,25 @@
         </select></td>
         <td></td>
     </tr>    
+    <tr>
+        <td></td><td colspan="2">
+            <div class="controls">
+                <label class="checkbox">
+                <input type="checkbox" data-bind="checked: settingsViewModel.settings.plugins.SafetyPrinter.notifyWarnings"> Notify WARNINGS on Octoprint UI and app (needs <a target="_new" href="https://plugins.octoprint.org/plugins/octopod/">Octopod plugin</a>).
+                </label>
+            </div>
+        </td>
+    </tr>   
 </table>
 </br>
-<h4>Sensor data:</h4>
+<span data-bind="visible: sensorDataVisible()"><h4>Sensor data:</h4>
 <table class="table table-bordered table-hover SPTable">
   <thead>
   <tr>
-    <th style="width:5%"></th>
-    <th style="width:22%"><small>Label:</small></th>
-    <th style="width:10%"><small>Type:</small></th>
-    <th style="width:10%"><small>Enable:</small></th>
+    <th style="width:2%"></th>
+    <th style="width:20%"><small>Label:</small></th>
+    <th style="width:14%"><small>Type:</small></th>
+    <th style="width:8%"><small>Enable:</small></th>
     <th style="width:10%"><small>Status:</small></th>
     <th style="width:14%"><small>Set Point:</small></th>
     <th style="width:14%"><small>Timer:</small></th>
@@ -130,7 +201,7 @@
     <td><small><input type="checkbox" data-bind="checked: checked, enable: $parent.expertMode()"/></small></td>
     <td><small><span data-bind="text: label"></span></small></td>
     <td><small><span data-bind="text: type"></span></small></td>
-    <td><small><input type="checkbox" value="EnabledCb" data-bind="checked: enabled, enable: $parent.expertMode()"/></small></td>
+    <td><small><input type="checkbox" value="EnabledCb" data-bind="checked: enabled, enable: $parent.expertMode() && !forceDisable()"/></small> <i class="fas fa-info-circle" title="ERROR: cannot be enabled due to configuration problem." data-bind="visible: forceDisable()"></i></td>
     <td><small><span data-bind="text: active() ? 'Alarm' : 'Normal'"></span></small></td>
     <!--td><span data-bind="text: newalarm"></span></td-->	
     <td><small><select data-bind="options: availableSP(), value: SP, enable: $parent.expertMode()" style="width:100%"></select></small></td>
@@ -139,16 +210,20 @@
   </tr>
 </tbody>
 </table>
+</span>
 <p>
 <div class="advanced_options">
     <div><small><a href="#" class="muted" data-bind="toggleContent: { class: 'fa-caret-right fa-caret-down', parent: '.advanced_options', container: '.hide' }"><i class="fas fa-caret-right"></i> Advanced options</a></small></div>
     <div class="hide">
-        <p><button class="btn btn-warning" data-bind="click: resetBtn, enable: expertMode()">Restore selected sensors to standard settings</button></p>
+        <p><button class="btn btn-warning" data-bind="click: resetBtn, enable: expertMode(), visible: sensorDataVisible">Restore selected sensors to standard settings</button></p>
         <p>  
         <input type="checkbox" data-bind="checked: expertMode"> <b>Expert mode</b>. This option allows you to enable or disable sensors, temporarily change their set points or send commands directly through the terminal. Use with caution and just for TEST only. Any wrong configuration can shutdown your printer or disable a safety function not allowing the safety printer to act when an incident is detected.</input>
         </p>
         <p>  
         <input type="checkbox" data-bind="checked: settingsViewModel.settings.plugins.SafetyPrinter.showTerminal, enable: expertMode()"> Enable Terminal</input>
+        </p>
+        <p>  
+        <input type="checkbox" data-bind="checked: settingsViewModel.settings.plugins.SafetyPrinter.useEmoji, enable: expertMode()"> Use Emoji on Terminal</input>
         </p>
     </div>
 </div>

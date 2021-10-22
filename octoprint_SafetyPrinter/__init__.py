@@ -1,3 +1,53 @@
+'''
+ * Safety Printer Octoprint Plugin
+ * Copyright (c) 2021 Rodrigo C. C. Silva [https://github.com/SinisterRj/Octoprint_SafetyPrinter]
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * 
+ *  
+ * Change log:
+ *
+ * Version 1.1.0
+ * 17/06/2021
+ * 1) Include CRC check from <r1>, <r2>, <r4> and <r5> command responses (communication protocol rev. 2),
+ * 2) Improve logging and notifications,
+ * 3) Add MCU info to settings tab,
+ * 4) Add BAUD rate to settings tab,
+ * 5) More Themeify and UI Customizer friendly,
+ * 6) Remake terminal filters;
+ * 7) Include terminal local commands (@connect, @disconnect);
+ * 8) Include Alarms and Trips on terminal;
+ * 9) Python-JS messages sanitization;
+ * 10) Fix bug that writes eeprom after first change, with settings multiple changes;
+ * 11) Fix bug that keeps "Connecting" status if connection fails;
+ * 12) Remove unnecessary Knockout bindings;
+ * 13) Include a better navibar icon management.
+ * 14) Adds emoji to terminal;
+ * 15) Warns user if selected port is printer port;
+ * 16) Allow user defined serial port;
+ * 17) Dynamicaly changes terminal lenght based on window lenght;
+ * 18) Terminal checks for commands endmarks on user sended strings;
+ * 19) Fix some bugs on shutdonw warning banner;
+ * 20) Adds terminal command history;
+ * 21) Fix a bug that saves wrong sensor data when connect thru setting tab and hit save;
+ * 22) Fix a bug that warns disconnection as communication fault.
+ * 23) Reconnects printer after Safetyprinter connection.
+ * 24) Increase to 20s the printer connection timeout.
+ * 
+
+ '''
+
 # coding=utf-8
 from __future__ import absolute_import
 import logging
@@ -32,11 +82,6 @@ class SafetyPrinterPlugin(
         self._abort_timer = None
         self._wait_for_timelapse_timer = None
         self.loggingLevel = 0
-        #self.FWVersion = "" 
-        #self.FWReleaseDate = "" 
-        #self.FWEEPROM = "" 
-        #self.FWCommProtocol = ""
-        #self.FWValidVersion = False
 
     def initialize(self):
         self._console_logger = logging.getLogger("octoprint.plugins.safetyprinter")
@@ -53,11 +98,12 @@ class SafetyPrinterPlugin(
 
     def updateStatus(self):
         # Update UI status (connection, trip and sensors)
-        self.conn.update_ui_connection_status()
-        if self.conn.is_connected():
-            self.conn.update_ui_status()
-        else:
-            self._commTimer.cancel()
+        if self.conn:            
+            self.conn.update_ui_connection_status()
+            if self.conn.is_connected():
+                self.conn.update_ui_status()
+            else:
+                self._commTimer.cancel()
 
     # ~~ StartupPlugin mixin
     def on_startup(self, host, port):
@@ -71,24 +117,11 @@ class SafetyPrinterPlugin(
         #self.console_setlevel(self.loggingLevel)
         self._console_logger.propagate = False
 
-    '''def console_setlevel(self, level):
-    #    if level == "DEBUG":
-    #        self._logger.info("********************** DEBUG") #Octoprint logger
-            self._console_logger.setLevel(logging.DEBUG)
-        elif level == "INFO":
-            self._logger.info("********************** INFO") #Octoprint logger
-            self._console_logger.setLevel(logging.INFO)
-        elif level == "WARNING":
-            self._console_logger.setLevel(logging.WARNING)
-        elif level == "ERROR":
-            self._console_logger.setLevel(logging.ERROR)
-        elif level == "CRITICAL":
-            self._console_logger.setLevel(logging.CRITICAL)
-'''
     def on_after_startup(self):
         self._logger.info("Safety Printer Plugin started.") #Octoprint logger 
         self._console_logger.info("******************* Starting Safety Printer Plug-in ***************************")
         self._console_logger.info("Default Serial Port:" + str(self._settings.get(["serialport"])))
+        self._console_logger.info("Default BAUD rate:" + str(self._settings.get(["BAUDRate"])))
         self.new_connection()
 
         self.abortTimeout = self._settings.get_int(["abortTimeout"])
@@ -112,18 +145,23 @@ class SafetyPrinterPlugin(
     def on_shutdown(self):
         self._console_logger.info("Disconnectig Safety Printer MCU...")
         self._commTimer.cancel()
+        self.conn.abortSerialConn = True
         self.conn.closeConnection()
                             
     ##~~ SettingsPlugin mixin    
     def get_settings_defaults(self):
         return dict(
             serialport="AUTO",
+            BAUDRate="38400",
             abortTimeout = 30,
             rememberCheckBox = False,
             lastCheckBoxValue = False,
             turnOffPrinter = True,
             showTerminal = False,
             loggingLevel = "INFO",
+            notifyWarnings = True,
+            useEmoji = True,
+            additionalPort = "",
         )
 
     def on_settings_save(self, data):
@@ -138,21 +176,20 @@ class SafetyPrinterPlugin(
         
         self._console_logger.info("User changed settings.")
         self._console_logger.debug("serialport: %s" % self._settings.get(["serialport"]))
+        self._console_logger.debug("BAUDRate: %s" % self._settings.get(["BAUDRate"]))
         self._console_logger.debug("abortTimeout: %s" % self.abortTimeout)
         self._console_logger.debug("rememberCheckBox: %s" % self.rememberCheckBox)
         self._console_logger.debug("lastCheckBoxValue: %s" % self.lastCheckBoxValue)
         self._console_logger.debug("showTerminal: %s" % self.showTerminal)
         self._console_logger.debug("loggingLevel: %s" % self.loggingLevel)
+        self._console_logger.debug("notifyWarnings: %s" % self._settings.get(["notifyWarnings"]))
+        self._console_logger.debug("useEmoji: %s" % self._settings.get(["useEmoji"]))
+        self._console_logger.debug("additionalPort: %s" % self._settings.get(["additionalPort"]))
 
     def get_template_vars(self):
         return dict(
             serialport=self._settings.get(["serialport"]),
             loggingLevel=self._settings.get(["loggingLevel"]),
-            #FWVersion=self.FWVersion, 
-            #FWReleaseDate=self.FWReleaseDate, 
-            #FWEEPROM=self.FWEEPROM, 
-            #FWCommProtocol=self.FWCommProtocol,
-            #FWValidVersion=self.FWValidVersion 
         )
 
     ##~~ AssetPlugin mixin
@@ -167,7 +204,8 @@ class SafetyPrinterPlugin(
     def get_assets(self):
         return dict(
             js=["js/SafetyPrinter.js"],
-            css=["css/SafetyPrinter.css"],
+            css=["css/SafetyPrinter.css"] #,
+            #less=["less/SafetyPrinter.less"]
           )
 
     ##~~ Softwareupdate hook
@@ -183,8 +221,18 @@ class SafetyPrinterPlugin(
                 repo="Octoprint_SafetyPrinter",
                 current=self._plugin_version,
 
+                stable_branch=dict(
+                    name="Stable", branch="main", comittish=["main"]
+                ),
+                prerelease_branches=[
+                    dict(
+                        name="Release Candidate",
+                        branch="devel",
+                        comittish=["devel", "main"],
+                    )
+                ],
+
                 # update method: pip
-                #pip="https://github.com/SinisterRj/SafetyPrinter/archive/{target_version}.zip"
                 pip="https://github.com/SinisterRj/Octoprint_SafetyPrinter/archive/refs/tags/{target_version}.zip"
              )
           )
@@ -206,7 +254,10 @@ class SafetyPrinterPlugin(
             saveEEPROM=[],
             enableShutdown=[],
             disableShutdown=[],
-            abortShutdown=[]
+            abortShutdown=[],
+            refreshMCUStats=[],
+            forceRenew=[],
+            settingsVisible=["status"]
         )
 
     def on_api_command(self, command, data):
@@ -239,6 +290,12 @@ class SafetyPrinterPlugin(
                 self.disableShutdown()
             elif command == "abortShutdown":
                 self.abortShutdown()
+            elif command == "refreshMCUStats":
+                self.refreshMCUStats()
+            elif command == "forceRenew":
+                self.forceRenew()
+            elif command == "settingsVisible":
+                self.settingsVisible(bool(data["status"]))
             response = "POST request (%s) successful" % command
             return flask.jsonify(response=response, data=data, status=200), 200
         except Exception as e:
@@ -247,47 +304,56 @@ class SafetyPrinterPlugin(
             return flask.jsonify(error=error, status=500), 500
 
     def resetTrip(self):
-        if self.conn.is_connected():
-            self._console_logger.info("Resseting ALL trips.")
-            self.conn.newSerialCommand("<C1>")
+        if self.conn:
+            if self.conn.is_connected():
+                self.conn.resetTrip()
+                self._console_logger.info("Resseting ALL trips.")
+                self.conn.newSerialCommand("<C1>")
             
     def sendTrip(self):
-        if self.conn.is_connected():
-            self._console_logger.info("Virtual Emergency Button pressed.")            
-            self.conn.newSerialCommand("<C2>")
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Virtual Emergency Button pressed.")            
+                self.conn.newSerialCommand("<C2>")
 
     def toggleEnabled(self, index, status):
-        if self.conn.is_connected():
-            if status == "on":
-                self._console_logger.info("Enabling sensor #" + str(index))
-            else:
-                self._console_logger.info("Disabling sensor #" + str(index))
-            self.conn.newSerialCommand("<C3 " + str(index) + " " + status + ">")
+        if self.conn:
+            if self.conn.is_connected():
+                if status == "on":
+                    self._console_logger.info("Enabling sensor #" + str(index))
+                else:
+                    self._console_logger.info("Disabling sensor #" + str(index))
+                self.conn.newSerialCommand("<C3 " + str(index) + " " + status + ">")
 
     def changeSP(self, index, newSP):
-        if self.conn.is_connected():
-            self._console_logger.info("Changing sensor #" + str(index) + " setpoint to:" + newSP)
-            self.conn.newSerialCommand("<C4 " + str(index) + " " + newSP + ">")
+        if self.conn:            
+            if self.conn.is_connected():
+                self._console_logger.info("Changing sensor #" + str(index) + " setpoint to:" + newSP)
+                self.conn.newSerialCommand("<C4 " + str(index) + " " + newSP + ">")
 
     def changeTimer(self, index, newTimer):
-        if self.conn.is_connected():
-            self._console_logger.info("Changing sensor #" + str(index) + " timer to:" + newTimer)
-            self.conn.newSerialCommand("<C7 " + str(index) + " " + newTimer + ">")
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Changing sensor #" + str(index) + " timer to:" + newTimer)
+                self.conn.newSerialCommand("<C7 " + str(index) + " " + newTimer + ">")
 
     def sendCommand(self,newCommand):
-        if self.conn.is_connected():
-            self._console_logger.info("Sending terminal command: " + newCommand)
-            self.conn.newSerialCommand(newCommand)
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Sending terminal command: " + newCommand)
+                self.conn.newSerialCommand(newCommand)
     
     def resetSettings(self, index):
-        if self.conn.is_connected():
-            self._console_logger.info("Loading sensor #" + str(index) + " default configurations.")
-            self.conn.newSerialCommand("<C8 " + str(index) + ">")
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Loading sensor #" + str(index) + " default configurations.")
+                self.conn.newSerialCommand("<C8 " + str(index) + ">")
 
     def saveEEPROM(self):
-        if self.conn.is_connected():
-            self._console_logger.info("Saving configuration to EEPROM.")
-            self.conn.newSerialCommand("<C5>")
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Saving configuration to EEPROM.")
+                self.conn.newSerialCommand("<C5>")
 
     def toggleShutdown(self):
         self.lastCheckBoxValue = self._automatic_shutdown_enabled
@@ -315,13 +381,29 @@ class SafetyPrinterPlugin(
         self._timeout_value = None
         self._plugin_manager.send_plugin_message(self._identifier, {"type":"shutdown","automaticShutdownEnabled": self._automatic_shutdown_enabled, "timeout_value":self._timeout_value})
         self._console_logger.info("Shutdown aborted.")
+    
+    def refreshMCUStats(self):
+        if self.conn:
+            if self.conn.is_connected():
+                self._console_logger.info("Refreshing MCU status.")
+                self.conn.update_MCU_Stats()
+
+    def forceRenew(self):
+        if self.conn:
+            self.conn.forceRenew = True
+            self.conn.forceRenewConn = True
+            self.conn.terminal("Renew UI status.","INFO")
+
+    def settingsVisible(self,status):
+        if self.conn:
+            self.conn.settingsVisible = status
 
     def on_event(self, event, payload):
 
         if event == Events.CLIENT_OPENED:
             self._plugin_manager.send_plugin_message(self._identifier, {"type":"shutdown","automaticShutdownEnabled": self._automatic_shutdown_enabled, "timeout_value":self._timeout_value})
             return
-        
+       
         if not self._automatic_shutdown_enabled:
             return
         
@@ -405,6 +487,7 @@ class SafetyPrinterPlugin(
             return
 
 __plugin_name__ = "Safety Printer"
+__plugin_version__ = "1.1.0rc5" #just used for Betas and release candidates. Change in Setup.py for main releases.
 __plugin_pythoncompat__ = ">=2.7,<4" # python 2 and 3
 
 def __plugin_load__():

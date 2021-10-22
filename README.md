@@ -24,3 +24,6 @@ Install via the bundled [Plugin Manager](https://docs.octoprint.org/en/master/bu
 or manually using this URL:
 
     https://github.com/SinisterRj/Octoprint_SafetyPrinter/archive/refs/heads/main.zip
+
+If you run on some communications problems after installation, check this:
+![Solve connection problems](https://github.com/SinisterRj/SafetyPrinter/wiki/Solve-connection-problems)
