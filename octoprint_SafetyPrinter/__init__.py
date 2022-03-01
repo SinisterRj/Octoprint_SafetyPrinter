@@ -107,6 +107,14 @@ class SafetyPrinterPlugin(
 
     # ~~ StartupPlugin mixin
     def on_startup(self, host, port):
+        psucontrol_helpers = self._plugin_manager.get_helpers("psucontrol")
+        if not psucontrol_helpers or 'register_plugin' not in psucontrol_helpers.keys():
+            self._logger.warning("The version of PSUControl that is installed does not support plugin registration.")
+            return
+
+        self._logger.debug("Registering plugin with PSUControl")
+        psucontrol_helpers['register_plugin'](self)
+
         console_logging_handler = logging.handlers.RotatingFileHandler(self._settings.get_plugin_logfile_path(postfix="console"), maxBytes=2 * 1024 * 1024)
         console_logging_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
         #console_logging_handler.setLevel(logging.DEBUG)
@@ -485,6 +493,25 @@ class SafetyPrinterPlugin(
         except Exception as e:
             self._console_logger.exception("Error when shutting down: {error}".format(error=e))
             return
+
+    def turn_psu_on(self):
+        self._console_logger.info("PSUControl requested power on")
+        if self.get_psu_state() == False:
+            if self.conn.is_connected():
+                self.conn.newSerialCommand("<C6 on>")
+
+    def turn_psu_off(self):
+        self._console_logger.info("PSUControl requested shutdown")
+        if self.get_psu_state():
+            if self.conn.is_connected():
+                self.conn.newSerialCommand("<C6 off>")
+
+
+    def get_psu_state(self):
+        if self.conn.is_connected():
+            return self.conn.newSerialCommand("<r6>") == "r6:T"
+        self._console_logger.info("Serial is not connected. Considered off.")
+        return False
 
 __plugin_name__ = "Safety Printer"
 __plugin_version__ = "1.1.0" #just used for Betas and release candidates. Change in Setup.py for main releases.
