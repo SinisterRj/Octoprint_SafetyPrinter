@@ -110,10 +110,9 @@ class SafetyPrinterPlugin(
         psucontrol_helpers = self._plugin_manager.get_helpers("psucontrol")
         if not psucontrol_helpers or 'register_plugin' not in psucontrol_helpers.keys():
             self._logger.warning("The version of PSUControl that is installed does not support plugin registration.")
-            return
-
-        self._logger.debug("Registering plugin with PSUControl")
-        psucontrol_helpers['register_plugin'](self)
+        else:
+            self._logger.debug("Registering plugin with PSUControl")
+            psucontrol_helpers['register_plugin'](self)
 
         console_logging_handler = logging.handlers.RotatingFileHandler(self._settings.get_plugin_logfile_path(postfix="console"), maxBytes=2 * 1024 * 1024)
         console_logging_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
