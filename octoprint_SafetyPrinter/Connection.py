@@ -33,7 +33,7 @@ if ((sys.platform == 'linux') or (sys.platform =='linux2')):
 class Connection():
     def __init__(self, plugin):
 
-        self.compatibleFirmwareCommProtocol = ["3"]
+        self.compatibleFirmwareCommProtocol = ["4"]
 
         # Serial connection variables
         self.ports = []
@@ -166,6 +166,10 @@ class Connection():
             else:
                 responseStr = "" #self.serialConn.readline().decode()
                 i = 0
+
+                self.serialConn.flush()
+                self.serialConn.write("<R6>".encode())
+
                 try:
                     while responseStr.find("Safety Printer MCU") == -1: # Wait for arduino boot and answer
                         i += 1                    
@@ -199,7 +203,7 @@ class Connection():
                 self.totalmsgs = 0
                 self.badmsgs = 0
 
-                responseStr = self.newSerialCommand("<R4>")
+                responseStr = self.newSerialCommand("<R4>",10)
                 if ((responseStr) and (responseStr != "Error")):
                     vpos1 = responseStr.find(':',0)
                     vpos2 = responseStr.find(',',vpos1)
@@ -264,7 +268,7 @@ class Connection():
     def getAllPorts(self):
         baselist = []
         
-        arduinoVIDPID = ['.*2341:003D.*','.*2341:003F.*','.*2341:0042.*','.*2341:0043.*','.*2341:0044.*','.*0403:6001.*','.*0403:6015.*','.*1A86:5523.*','.*1A86:7523.*']
+        arduinoVIDPID = ['.*2341:003D.*','.*2341:003F.*','.*2341:0042.*','.*2341:0043.*','.*2341:0044.*','.*0403:6001.*','.*0403:6015.*','.*1A86:5523.*','.*1A86:7523.*','.*2341:8036.*']
 
         '''
         if 'win32' in sys.platform:
@@ -544,7 +548,7 @@ class Connection():
 
     def update_MCU_Stats(self):
         # Update local vars with MCU status. Send data to update Settings Tab
-        responseStr = self.newSerialCommand("<R5>")
+        responseStr = self.newSerialCommand("<R5>",10)
         if ((responseStr) and (responseStr != "Error")):
             vpos1 = responseStr.find(':',0)
             vpos2 = responseStr.find(',',vpos1)
@@ -614,8 +618,8 @@ class Connection():
 
     # ****************************************** Functions to interact with Arduino when connected
 
-    def newSerialCommand(self,serialCommand):
-        # Used for 1 time only commands. Keeps tring if no arduino response 
+    def newSerialCommand(self,serialCommand, timeout): 
+        # Used for 1 time only commands. Keeps tring if no arduino response until timeout (s) expires.
         i = 0
         vpos1 = serialCommand.find('<',0)
         vpos2 = serialCommand.find('>',0)
@@ -624,7 +628,7 @@ class Connection():
                 self.terminal("newSerialCommand: Waiting serial availability.","DEBUG")
                 time.sleep(0.5)
                 i += 1  
-                if i >= 20:
+                if i >= 2 * timeout:
                     self.terminal("newSerialCommand: Serial availability time out. Closing connection.","DEBUG")
                     self.closeConnection()
                     return
