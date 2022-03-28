@@ -25,6 +25,7 @@ import threading
 import serial
 import serial.tools.list_ports
 import time
+import threading
 #from . import crc
 
 if ((sys.platform == 'linux') or (sys.platform =='linux2')):
@@ -41,7 +42,7 @@ class Connection():
         self.lastConnected = False
         self.serialConn = None
         self.connectedPort = ""
-        self.waitingResponse = False
+        self.waitingResponse = threading.Lock()
         self.totalmsgs = 0
         self.badmsgs = 0
         self.connFail = False
@@ -355,7 +356,7 @@ class Connection():
             if (len(self.sensorLabel) == 0):
                 self.update_ui_sensor_labels()
             
-            responseStr = self.send_command("<R1>",False) 
+            responseStr = self.send_command("<R1>",10) 
 
             if ((responseStr == "Error") or (not(isinstance(responseStr, str)))):
                 return
@@ -460,7 +461,7 @@ class Connection():
 
     def update_ui_sensor_labels(self):
         # Update local arrays with sensor labels and type. create items for all the other properties. Should run just after connection, only one time or when the number of sensor status sended by arduino changes
-        responseStr = self.send_command("<R2>",False)
+        responseStr = self.send_command("<R2>",10)
         
         if ((responseStr == "Error") or (not(isinstance(responseStr, str)))):
                 return
@@ -620,15 +621,7 @@ class Connection():
         vpos1 = serialCommand.find('<',0)
         vpos2 = serialCommand.find('>',0)
         if ((vpos1 > -1) and  (vpos2 > -1) and (vpos2 - vpos1 > 1)):
-            while self.waitingResponse:
-                self.terminal("newSerialCommand: Waiting serial availability.","DEBUG")
-                time.sleep(0.5)
-                i += 1  
-                if i >= 20:
-                    self.terminal("newSerialCommand: Serial availability time out. Closing connection.","DEBUG")
-                    self.closeConnection()
-                    return
-            responseStr = self.send_command(serialCommand,False)
+            responseStr = self.send_command(serialCommand,10)
             while ((responseStr == "Error") or (not responseStr)) and (not self.abortSerialConn):
                 time.sleep(0.5)
                 i += 1            
@@ -637,7 +630,7 @@ class Connection():
                 if i >= 10:
                     self.closeConnection()
                     break
-                responseStr = self.send_command(serialCommand,True)
+                responseStr = self.send_command(serialCommand,10)
             return responseStr
         else:
             self.terminal("'" + serialCommand + "' is not a valid command.","WARNING")
@@ -693,38 +686,33 @@ class Connection():
             return False
 
 
-    def send_command(self, command, retry):
+    def send_command(self, command, timeout=-1):
         # send serial commands to arduino and receives the answer
+        if not self.waitingResponse.acquire(True, timeout):
+            return "Error"
 
         if self.is_connected() and not self.abortSerialConn:
             try:
+                self.terminal(command.strip(), "Send")
+                self.serialConn.write(command.encode())
                 self.serialConn.flush()
-                if not self.waitingResponse and self.is_connected():
-                    self.terminal(command.strip(), "Send")
-                    self.serialConn.write(command.encode())
-                else:
-                    self.terminal("send_command:["+ command +"] Serial port busy.", "DEBUG")
-                    return "Error"                
-                
-                self.waitingResponse = True                    
                 data = ""
                 keepReading = True
 
                 while keepReading:
                     time.sleep(0.05)
                     if self.is_connected():
-                        newline = self.serialConn.readline()                        
+                        newline = self.serialConn.readline()
                     if not newline.strip():
                         keepReading = False
                     else:
                         data += newline.decode()
-                
                 if data: 
                     data = data.strip()
                     if ((command.lower() == "<r1>") or (command.lower() == "<r2>") or (command.lower() == "<r4>") or (command.lower() == "<r5>")):
                         data = self.crcCheck(data)
                         if not data:
-                            self.waitingResponse = False
+                            self.waitingResponse.release()
                             self.terminal("send_command:["+ command +"] Bad CRC.", "DEBUG")
                             return "Error"
 
@@ -742,27 +730,30 @@ class Connection():
                     receivedCmd = data[0:vpos1]
                     
                     if receivedCmd == sendedCmd:
-                        self.waitingResponse = False
+                        self.waitingResponse.release()
                         return str(data)
                     else:
                         self.terminal("send_command:Answer ("+ receivedCmd +") doesn't contains command ID:" + sendedCmd, "DEBUG")
+                        self.waitingResponse.release()
                         return "Error"
                 else:
                     self.terminal("send_command:["+ command +"] Received no data", "DEBUG")
+                    self.waitingResponse.release()
                     return "Error"  
             
             except (serial.SerialException, termios.error): #, termios.error):
-                self.waitingResponse = False
+		
+                self.waitingResponse.release()
                 if (not self.abortSerialConn) :
-                    self.terminal("Safety Printer communication error.", "ERROR")                
-                    self.closeConnection()         
+                    self.terminal("Safety Printer communication error.", "ERROR")
+                    self.closeConnection()
                 return "Error"
 
         else:
-            self.waitingResponse = False
+            self.waitingResponse.release()
             return "Error"
 
-        self.waitingResponse = False
+        self.waitingResponse.release()
 
     # ****************************************** Extra Functions
 
