@@ -15,8 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
+ * 
+ *  Change log:
  *  
- * Change log:
+ * Version 1.1.1
+ * 7/2/22 
+ * 1) Include <r4> command in connection to receive answer from Arduino Leonardo.
+ * 2) Arduino Leonardo VID & PID included on auto detect ports.
+ * 3) Limits terminal lines to 300, as Octoprint's terminal.
+ * 4) Include Timeout as argument on newSerialCommand function.
+ *
  *
  * Version 1.1.0
  * 17/06/2021
@@ -308,13 +316,13 @@ class SafetyPrinterPlugin(
             if self.conn.is_connected():
                 self.conn.resetTrip()
                 self._console_logger.info("Resseting ALL trips.")
-                self.conn.newSerialCommand("<C1>")
+                self.conn.newSerialCommand("<C1>",10)
             
     def sendTrip(self):
         if self.conn:
             if self.conn.is_connected():
                 self._console_logger.info("Virtual Emergency Button pressed.")            
-                self.conn.newSerialCommand("<C2>")
+                self.conn.newSerialCommand("<C2>",10)
 
     def toggleEnabled(self, index, status):
         if self.conn:
@@ -323,37 +331,37 @@ class SafetyPrinterPlugin(
                     self._console_logger.info("Enabling sensor #" + str(index))
                 else:
                     self._console_logger.info("Disabling sensor #" + str(index))
-                self.conn.newSerialCommand("<C3 " + str(index) + " " + status + ">")
+                self.conn.newSerialCommand("<C3 " + str(index) + " " + status + ">",10)
 
     def changeSP(self, index, newSP):
         if self.conn:            
             if self.conn.is_connected():
                 self._console_logger.info("Changing sensor #" + str(index) + " setpoint to:" + newSP)
-                self.conn.newSerialCommand("<C4 " + str(index) + " " + newSP + ">")
+                self.conn.newSerialCommand("<C4 " + str(index) + " " + newSP + ">",10)
 
     def changeTimer(self, index, newTimer):
         if self.conn:
             if self.conn.is_connected():
                 self._console_logger.info("Changing sensor #" + str(index) + " timer to:" + newTimer)
-                self.conn.newSerialCommand("<C7 " + str(index) + " " + newTimer + ">")
+                self.conn.newSerialCommand("<C7 " + str(index) + " " + newTimer + ">",10)
 
     def sendCommand(self,newCommand):
         if self.conn:
             if self.conn.is_connected():
                 self._console_logger.info("Sending terminal command: " + newCommand)
-                self.conn.newSerialCommand(newCommand)
+                self.conn.newSerialCommand(newCommand,10)
     
     def resetSettings(self, index):
         if self.conn:
             if self.conn.is_connected():
                 self._console_logger.info("Loading sensor #" + str(index) + " default configurations.")
-                self.conn.newSerialCommand("<C8 " + str(index) + ">")
+                self.conn.newSerialCommand("<C8 " + str(index) + ">",10)
 
     def saveEEPROM(self):
         if self.conn:
             if self.conn.is_connected():
                 self._console_logger.info("Saving configuration to EEPROM.")
-                self.conn.newSerialCommand("<C5>")
+                self.conn.newSerialCommand("<C5>",10)
 
     def toggleShutdown(self):
         self.lastCheckBoxValue = self._automatic_shutdown_enabled
@@ -474,7 +482,7 @@ class SafetyPrinterPlugin(
         if self.turnOffPrinter:
             if self.conn.is_connected():
                 self._console_logger.info("Turning off the printer.")
-                self.conn.newSerialCommand("<C6 off>")           
+                self.conn.newSerialCommand("<C6 off>",10)           
 
         shutdown_command = self._settings.global_get(["server", "commands", "systemShutdownCommand"])
         self._console_logger.info("Shutting down system with command: {command}".format(command=shutdown_command))
@@ -487,7 +495,7 @@ class SafetyPrinterPlugin(
             return
 
 __plugin_name__ = "Safety Printer"
-__plugin_version__ = "1.1.0" #just used for Betas and release candidates. Change in Setup.py for main releases.
+__plugin_version__ = "1.1.1rc1" #just used for Betas and release candidates. Change in Setup.py for main releases.
 __plugin_pythoncompat__ = ">=2.7,<4" # python 2 and 3
 
 def __plugin_load__():
