@@ -65,7 +65,7 @@ $(function() {
     function SafetyprinterViewModel(parameters) {
         var self = this;
 
-        self.debug = false;  
+        self.debug = true;//false;  
 
         self.settingsViewModel = parameters[0];
         self.printerState = parameters[1];
@@ -377,11 +377,7 @@ $(function() {
                     totalLines++;
                 }               
             });
-            /*
 
-            for (i = totalLines; i < 17; i++) { 
-                result.unshift(new TerminalViewModel("","")); //Add empty lines to the begining of the array
-            } */  
             self.lineCount("showing " + totalLines + " line(s).");
             
             return result;
@@ -958,7 +954,7 @@ $(function() {
                 self.terminalLines.push(new TerminalViewModel(data.line,data.terminalType));
                 self.countTerminalLines++;
 
-                if (self.countTerminalLines > 3600) {
+                if (self.countTerminalLines > 300) {  //same amount of lines as Octoprint's terminal
                     self.terminalLines.shift(); //removes the first line
                 }
                 if (self.autoscrollEnabled() && $("#SafetyPrinterTerminal").is(':visible') && OctoPrint.coreui.browserTabVisible) {

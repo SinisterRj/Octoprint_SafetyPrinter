@@ -25,6 +25,7 @@ import threading
 import serial
 import serial.tools.list_ports
 import time
+import threading
 #from . import crc
 
 if ((sys.platform == 'linux') or (sys.platform =='linux2')):
@@ -33,7 +34,7 @@ if ((sys.platform == 'linux') or (sys.platform =='linux2')):
 class Connection():
     def __init__(self, plugin):
 
-        self.compatibleFirmwareCommProtocol = ["3"]
+        self.compatibleFirmwareCommProtocol = ["4"]
 
         # Serial connection variables
         self.ports = []
@@ -41,7 +42,7 @@ class Connection():
         self.lastConnected = False
         self.serialConn = None
         self.connectedPort = ""
-        self.waitingResponse = False
+        self.waitingResponse = threading.Lock()
         self.totalmsgs = 0
         self.badmsgs = 0
         self.connFail = False
@@ -166,6 +167,10 @@ class Connection():
             else:
                 responseStr = "" #self.serialConn.readline().decode()
                 i = 0
+
+                self.serialConn.flush()
+                self.serialConn.write("<R6>".encode())
+
                 try:
                     while responseStr.find("Safety Printer MCU") == -1: # Wait for arduino boot and answer
                         i += 1                    
@@ -199,7 +204,7 @@ class Connection():
                 self.totalmsgs = 0
                 self.badmsgs = 0
 
-                responseStr = self.newSerialCommand("<R4>")
+                responseStr = self.newSerialCommand("<R4>",10)
                 if ((responseStr) and (responseStr != "Error")):
                     vpos1 = responseStr.find(':',0)
                     vpos2 = responseStr.find(',',vpos1)
@@ -264,7 +269,7 @@ class Connection():
     def getAllPorts(self):
         baselist = []
         
-        arduinoVIDPID = ['.*2341:003D.*','.*2341:003F.*','.*2341:0042.*','.*2341:0043.*','.*2341:0044.*','.*0403:6001.*','.*0403:6015.*','.*1A86:5523.*','.*1A86:7523.*']
+        arduinoVIDPID = ['.*2341:003D.*','.*2341:003F.*','.*2341:0042.*','.*2341:0043.*','.*2341:0044.*','.*0403:6001.*','.*0403:6015.*','.*1A86:5523.*','.*1A86:7523.*','.*2341:8036.*']
 
         '''
         if 'win32' in sys.platform:
@@ -355,7 +360,7 @@ class Connection():
             if (len(self.sensorLabel) == 0):
                 self.update_ui_sensor_labels()
             
-            responseStr = self.send_command("<R1>",False) 
+            responseStr = self.send_command("<R1>",10) 
 
             if ((responseStr == "Error") or (not(isinstance(responseStr, str)))):
                 return
@@ -460,7 +465,7 @@ class Connection():
 
     def update_ui_sensor_labels(self):
         # Update local arrays with sensor labels and type. create items for all the other properties. Should run just after connection, only one time or when the number of sensor status sended by arduino changes
-        responseStr = self.send_command("<R2>",False)
+        responseStr = self.send_command("<R2>",10)
         
         if ((responseStr == "Error") or (not(isinstance(responseStr, str)))):
                 return
@@ -544,7 +549,7 @@ class Connection():
 
     def update_MCU_Stats(self):
         # Update local vars with MCU status. Send data to update Settings Tab
-        responseStr = self.newSerialCommand("<R5>")
+        responseStr = self.newSerialCommand("<R5>",10)
         if ((responseStr) and (responseStr != "Error")):
             vpos1 = responseStr.find(':',0)
             vpos2 = responseStr.find(',',vpos1)
@@ -614,21 +619,13 @@ class Connection():
 
     # ****************************************** Functions to interact with Arduino when connected
 
-    def newSerialCommand(self,serialCommand):
-        # Used for 1 time only commands. Keeps tring if no arduino response 
+    def newSerialCommand(self,serialCommand, timeout): 
+        # Used for 1 time only commands. Keeps tring if no arduino response until timeout (s) expires.
         i = 0
         vpos1 = serialCommand.find('<',0)
         vpos2 = serialCommand.find('>',0)
         if ((vpos1 > -1) and  (vpos2 > -1) and (vpos2 - vpos1 > 1)):
-            while self.waitingResponse:
-                self.terminal("newSerialCommand: Waiting serial availability.","DEBUG")
-                time.sleep(0.5)
-                i += 1  
-                if i >= 20:
-                    self.terminal("newSerialCommand: Serial availability time out. Closing connection.","DEBUG")
-                    self.closeConnection()
-                    return
-            responseStr = self.send_command(serialCommand,False)
+            responseStr = self.send_command(serialCommand,10)
             while ((responseStr == "Error") or (not responseStr)) and (not self.abortSerialConn):
                 time.sleep(0.5)
                 i += 1            
@@ -637,7 +634,7 @@ class Connection():
                 if i >= 10:
                     self.closeConnection()
                     break
-                responseStr = self.send_command(serialCommand,True)
+                responseStr = self.send_command(serialCommand,10)
             return responseStr
         else:
             self.terminal("'" + serialCommand + "' is not a valid command.","WARNING")
@@ -693,38 +690,33 @@ class Connection():
             return False
 
 
-    def send_command(self, command, retry):
+    def send_command(self, command, timeout=-1):
         # send serial commands to arduino and receives the answer
+        if not self.waitingResponse.acquire(True, timeout):
+            return "Error"
 
         if self.is_connected() and not self.abortSerialConn:
             try:
+                self.terminal(command.strip(), "Send")
+                self.serialConn.write(command.encode())
                 self.serialConn.flush()
-                if not self.waitingResponse and self.is_connected():
-                    self.terminal(command.strip(), "Send")
-                    self.serialConn.write(command.encode())
-                else:
-                    self.terminal("send_command:["+ command +"] Serial port busy.", "DEBUG")
-                    return "Error"                
-                
-                self.waitingResponse = True                    
                 data = ""
                 keepReading = True
 
                 while keepReading:
                     time.sleep(0.05)
                     if self.is_connected():
-                        newline = self.serialConn.readline()                        
+                        newline = self.serialConn.readline()
                     if not newline.strip():
                         keepReading = False
                     else:
                         data += newline.decode()
-                
                 if data: 
                     data = data.strip()
                     if ((command.lower() == "<r1>") or (command.lower() == "<r2>") or (command.lower() == "<r4>") or (command.lower() == "<r5>")):
                         data = self.crcCheck(data)
                         if not data:
-                            self.waitingResponse = False
+                            self.waitingResponse.release()
                             self.terminal("send_command:["+ command +"] Bad CRC.", "DEBUG")
                             return "Error"
 
@@ -742,27 +734,30 @@ class Connection():
                     receivedCmd = data[0:vpos1]
                     
                     if receivedCmd == sendedCmd:
-                        self.waitingResponse = False
+                        self.waitingResponse.release()
                         return str(data)
                     else:
                         self.terminal("send_command:Answer ("+ receivedCmd +") doesn't contains command ID:" + sendedCmd, "DEBUG")
+                        self.waitingResponse.release()
                         return "Error"
                 else:
                     self.terminal("send_command:["+ command +"] Received no data", "DEBUG")
+                    self.waitingResponse.release()
                     return "Error"  
             
             except (serial.SerialException, termios.error): #, termios.error):
-                self.waitingResponse = False
+		
+                self.waitingResponse.release()
                 if (not self.abortSerialConn) :
-                    self.terminal("Safety Printer communication error.", "ERROR")                
-                    self.closeConnection()         
+                    self.terminal("Safety Printer communication error.", "ERROR")
+                    self.closeConnection()
                 return "Error"
 
         else:
-            self.waitingResponse = False
+            self.waitingResponse.release()
             return "Error"
 
-        self.waitingResponse = False
+        self.waitingResponse.release()
 
     # ****************************************** Extra Functions
 
