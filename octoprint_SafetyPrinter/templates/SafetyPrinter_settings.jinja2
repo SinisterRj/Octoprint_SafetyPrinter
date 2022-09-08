@@ -9,7 +9,7 @@
     <tr>
         <td style="width: 30%" align="right">Connection:&nbsp;&nbsp;</td>
         <td style="width: 50%"> 
-            <span data-bind="style: {color: notConnected()? '#EB9605' : 'revert'}"><strong data-bind="text: connection"></strong></span>
+            <span data-bind="style: {color: notConnected()? '#EB9605' : 'revert'}"><strong data-bind="text: connection"></strong></span> <i class="icon-warning-sign" style="color: #FFD21C" data-bind="visible: reducedConn()" title="Communication reduced to essentials and no configuration is allowed. It's highly recommended to update this plugin and/or safety printer MCU firmware."></i>
         </td>
         <td style="width: 20%">
             <button data-bind="click: connectBtn, text: connectionCaption" class="btn"></button>
@@ -25,9 +25,9 @@
     <tr>
         <td style="text-align:right">Default Serial Port:&nbsp;&nbsp;</td>
         <td>
-            <select data-bind="options: availablePorts, optionsText: 'name', optionsValue: 'name', value: settingsViewModel.settings.plugins.SafetyPrinter.serialport, valueAllowUnset: true"></select>
+            <select data-bind="options: availablePorts, optionsText: 'name', optionsValue: 'name', value: configSerialPort, valueAllowUnset: true"></select>            
         </td>
-        <td></td>
+        <td><button data-bind="click: savePort, visible: configSerialPort() != settingsViewModel.settings.plugins.SafetyPrinter.serialport()" class="btn">{{ _('Save') }}</button></td>
     </tr>
     <tr>
         <td style="text-align:right">Aditional Serial Port:&nbsp;&nbsp;</td>
@@ -87,6 +87,64 @@
         <td></td>
     </tr>
     <tr>
+        <td style="text-align:right">CPU&nbsp;&nbsp;</td>
+        <td><span data-bind="text: FWBoardType"></span>
+        </td>            
+        <td></td>
+    </tr>
+    <tr>
+        <td colspan="3">
+        </br>
+        <h4>Firmware Update:</h4>        
+        </td>
+    </tr>
+        <td style="text-align:right">AVR Dude Path:&nbsp;&nbsp;</td>
+        <td>
+            <input type="text" class="input-block-level" data-bind="value: configAvrdudePath"></input></br>
+            <i data-bind="visible: avrdudePathBroken() || avrdudePathOk, class: avrdudePathOk() ? 'fas fa-check' : 'fas fa-times', style: {color: avrdudePathOk() ? 'green' : 'red'}"></i> <span data-bind="visible: avrdudePathBroken() || avrdudePathOk, text: avrdudePathText"></span> 
+        </td>
+        <td>            
+            <button data-bind="click: testAvrdudePath " class="btn">{{ _('Test') }}</button>
+            <button data-bind="click: savePath, visible: configAvrdudePath() != settingsViewModel.settings.plugins.SafetyPrinter.avrdude_path()" class="btn">{{ _('Save') }}</button>
+        </td>
+    </tr>
+    <tr>
+        <td style="text-align:right">Firmware File:&nbsp;&nbsp;</td>
+        <td>
+            <input class="input input-block-level" type="text" data-bind="value: firmwareFileName" disabled>
+        </td>
+        <td>               
+            <span class="btn input-group-btn fileinput-button" data-bind="css: { disabled: isBusy() }">{{ _('Browse...') }}   
+            <input id="settings_plugin_SafetyPrinter_selectFilePath" type="file" name="file" data-bind='click: function() { return !isBusy(); }, attr: { accept: filterFileTypes }, css: { disabled: isBusy() }, disable: isBusy' data-url="{{ url_for("plugin.SafetyPrinter.flash_firmware") }}">
+            </span>
+        </td>
+    </tr>
+    <tr>
+        <td></td>
+        <td>
+            <div class="progress progress-info progress-striped active" data-bind="visible: isBusy()">
+            <div class="bar" style="width: 100%;"><label data-bind="text: progressBarText()"></label></div>
+            </div>
+        </td>
+        <td></td>
+    <tr>
+        <td></td>
+        <td>
+          <button class="btn btn-primary btn-block" data-bind="attr: {title: fileFlashButtonText}, click: startFlashFromFile, enable: firmwareFileName && !isBusy(), css: {disabled: !firmwareFileName() || isBusy()}">{{ _('Flash from File') }}</button>  
+        </td>
+        <td></td>
+    <tr>
+        <td></td>
+        <td colspan="2">
+            <i class="icon-warning-sign"></i>&nbsp;&nbsp;<h5 style="display: inline-block">Warning</h5>
+            <p>As with any firmware flashing there is a risk that things may go wrong.</p>
+            <ul>
+                <li><b>Do not</b> power-cycle or restart your printer while flashing is in progress.</li>
+                <li><b>Do not</b> attempt to flash a firmware file which includes a bootloader.</li>
+            </ul>
+        </td>        
+    </tr>
+    <tr>
         <td colspan="2">
         </br>
         <h4>MCU Info:</h4>        
@@ -94,6 +152,12 @@
         <td style="vertical-align: bottom">
             <button data-bind="click: refreshMCUStats, hidden: notConnected" class="btn">Refresh</button>
         </td>
+    </tr>
+    <tr>
+        <td style="text-align:right">&nbsp;&nbsp;</td>
+        <td>
+        <input type="checkbox" data-bind="checked: settingsViewModel.settings.plugins.SafetyPrinter.notifyVoltageTemp"> Enable "Supply Voltage" and "Internal Temperature" warnings.</input>&nbsp;&nbsp;
+        </td>        
     </tr>
     <tr>
         <td style="text-align:right">Supply Voltage:&nbsp;&nbsp;</td>
@@ -201,7 +265,7 @@
     <td><small><input type="checkbox" data-bind="checked: checked, enable: $parent.expertMode()"/></small></td>
     <td><small><span data-bind="text: label"></span></small></td>
     <td><small><span data-bind="text: type"></span></small></td>
-    <td><small><input type="checkbox" value="EnabledCb" data-bind="checked: enabled, enable: $parent.expertMode() && !forceDisable()"/></small> <i class="fas fa-info-circle" title="ERROR: cannot be enabled due to configuration problem." data-bind="visible: forceDisable()"></i></td>
+    <td><small><input type="checkbox" value="EnabledCb" data-bind="checked: enabled, enable: $parent.expertMode() && !forceDisable()"/></small> <i class="fas fa-info-circle" title="ERROR: cannot be enabled due to a configuration problem." data-bind="visible: forceDisable()"></i></td>
     <td><small><span data-bind="text: active() ? 'Alarm' : 'Normal'"></span></small></td>
     <!--td><span data-bind="text: newalarm"></span></td-->	
     <td><small><select data-bind="options: availableSP(), value: SP, enable: $parent.expertMode()" style="width:100%"></select></small></td>
@@ -217,7 +281,7 @@
     <div class="hide">
         <p><button class="btn btn-warning" data-bind="click: resetBtn, enable: expertMode(), visible: sensorDataVisible">Restore selected sensors to standard settings</button></p>
         <p>  
-        <input type="checkbox" data-bind="checked: expertMode"> <b>Expert mode</b>. This option allows you to enable or disable sensors, temporarily change their set points or send commands directly through the terminal. Use with caution and just for TEST only. Any wrong configuration can shutdown your printer or disable a safety function not allowing the safety printer to act when an incident is detected.</input>
+        <input type="checkbox" data-bind="checked: expertMode, enable: !reducedConn()"> <b>Expert mode</b>. This option allows you to enable or disable sensors, temporarily change their set points or send commands directly through the terminal. Use with caution and just for TEST only. Any wrong configuration can shutdown your printer or disable a safety function not allowing the safety printer to act when an incident is detected.</input>
         </p>
         <p>  
         <input type="checkbox" data-bind="checked: settingsViewModel.settings.plugins.SafetyPrinter.showTerminal, enable: expertMode()"> Enable Terminal</input>

@@ -1,6 +1,6 @@
 /*
  * Safety Printer Octoprint Plugin
- * Copyright (c) 2021 Rodrigo C. C. Silva [https://github.com/SinisterRj/Octoprint_SafetyPrinter]
+ * Copyright (c) 2021~22 Rodrigo C. C. Silva [https://github.com/SinisterRj/Octoprint_SafetyPrinter]
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -65,10 +65,12 @@ $(function() {
     function SafetyprinterViewModel(parameters) {
         var self = this;
 
-        self.debug = true;//false;  
+        self.debug = false;  
 
+        // Parameters
         self.settingsViewModel = parameters[0];
-        self.printerState = parameters[1];
+        self.loginState = parameters[1];
+        self.printerState = parameters[2];
         
         // Sidebar variables
         self.interlock = ko.observable(false);
@@ -91,13 +93,14 @@ $(function() {
         self.availablePorts = ko.observableArray();
         self.settingsVisible = false;
         self.changedFlag = false;
-                
+
         self.updateSettingsSensors = false;
         self.FWVersion = ko.observable("");
         self.FWReleaseDate = ko.observable("");
         self.FWEEPROM = ko.observable("");
         self.FWCommProtocol = ko.observable("");
         self.FWValidVersion = ko.observable(false);
+        self.FWBoardType = ko.observable("");
 
         self.MCUVolts = ko.observable("");
         self.MCUTemp = ko.observable("");
@@ -121,6 +124,27 @@ $(function() {
            new spSensorsSettingsType(false,false,"","0",false,false,"0","0","0",[],false,false,false)
         ]);
 
+        self.isBusy = ko.observable(false);
+        self.firmwareFileName = ko.observable();
+        self.readyToFlash = ko.observable(false);
+        self.progressBarText = ko.observable();
+        self.fileFlashButtonText = ko.observable("");
+        self.alertMessage = ko.observable("");
+        self.showAlert = ko.observable(false);
+        self.alertType = ko.observable("alert-warning");
+
+        // Returns a list of file types to accept for upload based on whether or not file type filter is enabled or disabled
+        self.filterFileTypes = ko.computed(function() {
+            return '.hex,.bin,.srec';
+        });
+
+        self.avrdudePathBroken = ko.observable(false);
+        self.avrdudePathOk = ko.observable(false);
+        self.avrdudePathText = ko.observable();
+        self.configAvrdudePath = ko.observable();
+
+        self.configSerialPort = ko.observable();
+
         // Navbar variables
         self.navbarcolor = ko.observable("#EB9605");
         self.navbartitle = ko.observable("Safety Printer: Offline");
@@ -136,7 +160,7 @@ $(function() {
         self.countTerminalLines = 0;
         self.command = ko.observable();
         self.tabActive = false;
-        self.tempMsgFilter = ko.observable(false);
+        //self.tempMsgFilter = ko.observable(false);
         self.startedFilter = false;
         self.terminalColor = ko.observable("");
         self.terminalBg = ko.observable("");
@@ -152,10 +176,51 @@ $(function() {
         self.automaticShutdownEnabled = ko.observable();
         self.newTrip = ko.observable(false);
         self.numOfSensors = 0;
-
-
+        self.reducedConn = ko.observable(false);
 
         // ************* Notifications :
+
+        // Popup Messages
+        self.showPopup = function(message_type, title, text){
+            if (self.popup !== undefined){
+                self.closePopup();
+            }
+            if (message_type == "error") {
+                self.popup = new PNotify({
+                    title: gettext(title),
+                    text: text,
+                    type: message_type,
+                    hide: false,
+                    confirm: {
+                        confirm: true,
+                        buttons: [{
+                            text: 'Ok',
+                            addClass: 'btn-block btn-danger',
+                            promptTrigger: true,
+                            click: function(notice, value){
+                                notice.remove();
+                                self.updateNavbar('Error',false)
+                                notice.get().trigger("pnotify.cancel", [notice, value]);
+                            }
+                        }]
+                    },
+                });
+            }
+            else {
+                self.popup = new PNotify({
+                    title: gettext(title),
+                    text: text,
+                    type: message_type,
+                    hide: false
+                });
+            }
+        };
+
+        self.closePopup = function() {
+            if (self.popup !== undefined) {
+                self.popup.remove();
+            }
+        };
 
         PNotify.prototype.options.confirm.buttons = [];
 
@@ -165,19 +230,6 @@ $(function() {
             type: 'error',           
             icon: true,
             hide: false,
-            /*
-            confirm: {
-                confirm: false,
-                buttons: [{
-                    text: '',
-                    addClass: 'btn-block btn-danger',
-                    promptTrigger: false,
-                    click: function(notice, value){
-                        notice.remove();
-                        notice.get().trigger("pnotify.cancel", [notice, value]);
-                    }
-                }]
-            },*/
             buttons: {
                 closer: false,
                 sticker: false,
@@ -213,61 +265,24 @@ $(function() {
                 history: false
             }
         };
+ 
+        self.selectFilePath = undefined;
 
-        self.errorPopupText = gettext('Error:');
-        self.errorPopupOptions = {
-            title: gettext('Safety Printer'), 
-            type: 'error',           
-            icon: true,
-            hide: false,
-            confirm: {
-                confirm: true,
-                buttons: [{
-                    text: 'Ok',
-                    addClass: 'btn-block btn-danger',
-                    promptTrigger: true,
-                    click: function(notice, value){
-                        notice.remove();
-                        self.updateNavbar('Error',false)
-                        notice.get().trigger("pnotify.cancel", [notice, value]);
-                    }
-                }]
-            },
-            buttons: {
-                closer: false,
-                sticker: false,
-            },
-            history: {
-                history: false
-            }
-        };
+        self.onStartup = function() {
+            self.selectFilePath = $("#settings_plugin_SafetyPrinter_selectFilePath");
 
-        self.warningPopupText = gettext('Warning:');
-        self.warningPopupOptions = {
-            title: gettext('Safety Printer'), 
-            type: 'warning',           
-            icon: true,
-            hide: false,
-            confirm: {
-                confirm: true,
-                buttons: [{
-                    text: 'Ok',
-                    addClass: 'btn-block btn-warning',
-                    promptTrigger: true,
-                    click: function(notice, value){
-                        notice.remove();
-                        self.updateNavbar('Warning',false)
-                        notice.get().trigger("pnotify.cancel", [notice, value]);
+            self.selectFilePath.fileupload({
+                dataType: "hex",
+                maxNumberOfFiles: 1,
+                autoUpload: false,
+                add: function(e, data) {
+                    if (data.files.length === 0) {
+                        return false;
                     }
-                }]
-            },
-            buttons: {
-                closer: false,
-                sticker: false,
-            },
-            history: {
-                history: false
-            }
+                    self.hexData = data;
+                    self.firmwareFileName(data.files[0].name);
+                }
+            });
         };
 
         self.onStartupComplete = function() {
@@ -276,6 +291,7 @@ $(function() {
             self.showHideTab();
             OctoPrint.simpleApiCommand("SafetyPrinter", "forceRenew"); 
         };
+
       
         self.showHideTab = function() {
             if (self.debug) {console.log("showHideTab")};
@@ -347,7 +363,7 @@ $(function() {
             _.each(self.terminalLines(), function (entry) {
                
                 
-                if (((self.showDebug()) || (entry.type() != "DEBUG")) && ((!self.tempMsgFilter()) || (entry.line().search("R1") == -1))) {
+                if (((self.showDebug()) || (entry.type() != "DEBUG")) && ((!self.settingsViewModel.settings.plugins.SafetyPrinter.terminalMsgFilter()) || (entry.line().search("R1") == -1))) {
 
                     if (self.settingsViewModel.settings.plugins.SafetyPrinter.useEmoji()){
                         if (entry.type().toUpperCase() == "SEND") {
@@ -394,6 +410,10 @@ $(function() {
             for (i = 0; i < self.numOfSensors; i++) {
                 self.refreshSettings(i);
             }
+
+            self.configAvrdudePath(self.settingsViewModel.settings.plugins.SafetyPrinter.avrdude_path());
+            self.configSerialPort(self.settingsViewModel.settings.plugins.SafetyPrinter.serialport());
+
             OctoPrint.simpleApiCommand("SafetyPrinter", "settingsVisible", {status: self.settingsVisible});
 
             //OctoPrint.simpleApiCommand("SafetyPrinter", "forceRenew"); 
@@ -402,15 +422,16 @@ $(function() {
         };
 
         self.updatePorts = function (addPort){
+            if (self.debug) {console.log("updatePorts")};
             self.availablePorts.removeAll();
             self.availablePorts.push(new ItemViewModel("AUTO"));
             if (addPort != ""){
                self.availablePorts.push(new ItemViewModel(addPort));   
             }
             OctoPrint.simpleApiCommand("SafetyPrinter", "getPorts");
-        }
+        };        
 
-        self.onSettingsHidden = function () {
+        self.onSettingsHidden = function () {            
             if (self.debug) {console.log("onSettingsHidden")};
             self.settingsVisible = false;
             OctoPrint.simpleApiCommand("SafetyPrinter", "settingsVisible", {status: self.settingsVisible});
@@ -423,57 +444,56 @@ $(function() {
 
         self.refreshSettings = function(i) {
             if (self.debug) {console.log("refreshSettings")};
-            // Update serial ports info. Also called when user clicks on "default Serial" combo box
+            // Update sensors info.
 
             if (self.numOfSensors > 0 && !self.notConnected()) {
                 self.sensorDataVisible(true);
             }
 
-            //for (i = 0; i < self.numOfSensors; i++) {
+            if (self.spSensorsSettings()[i].visible() != self.spSensors()[i].visible()) {
+                self.spSensorsSettings()[i].visible(self.spSensors()[i].visible());
+                self.spSensorsSettings()[i].visible.valueHasMutated();   //Force knockout to refresh View
+            }
 
-                if (self.spSensorsSettings()[i].visible() != self.spSensors()[i].visible()) {
-                    self.spSensorsSettings()[i].visible(self.spSensors()[i].visible());
-                    self.spSensorsSettings()[i].visible.valueHasMutated();   //Force knockout to refresh View
-                }
+            if (self.spSensorsSettings()[i].type() != self.spSensors()[i].type()) {
+                self.spSensorsSettings()[i].type(self.spSensors()[i].type());
+                self.spSensorsSettings()[i].type.valueHasMutated();
+            }
 
-                if (self.spSensorsSettings()[i].type() != self.spSensors()[i].type()) {
-                    self.spSensorsSettings()[i].type(self.spSensors()[i].type());
-                    self.spSensorsSettings()[i].type.valueHasMutated();
-                }
+            if (self.spSensorsSettings()[i].enabled() != self.spSensors()[i].enabled()) {
+                self.spSensorsSettings()[i].enabled(self.spSensors()[i].enabled());
+                self.spSensorsSettings()[i].enabled.valueHasMutated();
+            }
 
-                if (self.spSensorsSettings()[i].enabled() != self.spSensors()[i].enabled()) {
-                    self.spSensorsSettings()[i].enabled(self.spSensors()[i].enabled());
-                    self.spSensorsSettings()[i].enabled.valueHasMutated();
-                }
+            if (self.spSensorsSettings()[i].active() != self.spSensors()[i].active()) {
+                self.spSensorsSettings()[i].active(self.spSensors()[i].active());
+                self.spSensorsSettings()[i].active.valueHasMutated();
+            }
 
-                if (self.spSensorsSettings()[i].active() != self.spSensors()[i].active()) {
-                    self.spSensorsSettings()[i].active(self.spSensors()[i].active());
-                    self.spSensorsSettings()[i].active.valueHasMutated();
-                }
+            if (self.spSensorsSettings()[i].SP() != self.spSensors()[i].SP()) {
+                self.spSensorsSettings()[i].SP(self.spSensors()[i].SP());
+                self.spSensorsSettings()[i].SP.valueHasMutated();
+            }
 
-                if (self.spSensorsSettings()[i].SP() != self.spSensors()[i].SP()) {
-                    self.spSensorsSettings()[i].SP(self.spSensors()[i].SP());
-                    self.spSensorsSettings()[i].SP.valueHasMutated();
-                }
-
-                if (self.spSensorsSettings()[i].timer() != self.spSensors()[i].timer()) {
-                    self.spSensorsSettings()[i].timer(self.spSensors()[i].timer());
-                    self.spSensorsSettings()[i].timer.valueHasMutated();                
-                }
-                self.spSensorsSettings()[i].validInfo = true;
-            //}   
+            if (self.spSensorsSettings()[i].timer() != self.spSensors()[i].timer()) {
+                self.spSensorsSettings()[i].timer(self.spSensors()[i].timer());
+                self.spSensorsSettings()[i].timer.valueHasMutated();                
+            }
+            self.spSensorsSettings()[i].validInfo = true;
         };
 
         self.onSettingsBeforeSave = function() {
             if (self.debug) {console.log("onSettingsBeforeSave")};
-            //self.changedFlag = false;
             alertFlag = false;
-                        
+
+            self.settingsViewModel.settings.plugins.SafetyPrinter.avrdude_path(self.configAvrdudePath());  
+            self.settingsViewModel.settings.plugins.SafetyPrinter.serialport(self.configSerialPort());       
+            
             for (i = 0; i < self.numOfSensors; i++) {                                         
 
                 if (self.spSensorsSettings()[i].validInfo && !self.notConnected()) {
                     if (self.spSensorsSettings()[i].SP() != self.spSensors()[i].SP()) {
-                        if (!self.printerState.isPrinting()) {  // avoids changins during printing.
+                        if (!self.printerState.isPrinting()) {  // avoids changes during printing.
                             if (self.debug) {console.log("Changing SP: " + self.spSensorsSettings()[i].label())};
                             OctoPrint.simpleApiCommand("SafetyPrinter", "changeSP", {id: i, newSP: self.spSensorsSettings()[i].SP()});
                             self.changedFlag = true;
@@ -483,7 +503,7 @@ $(function() {
                     }
 
                     if (self.spSensorsSettings()[i].timer() != self.spSensors()[i].timer()) {
-                        if (!self.printerState.isPrinting()) {  // avoids changins during printing.
+                        if (!self.printerState.isPrinting()) {  // avoids changes during printing.
                             if (self.debug) {console.log("Changing Timer: " + self.spSensorsSettings()[i].label())};
                             OctoPrint.simpleApiCommand("SafetyPrinter", "changeTimer", {id: i, newTimer: self.spSensorsSettings()[i].timer()});
                             self.changedFlag = true;
@@ -494,7 +514,7 @@ $(function() {
 
                     //Always keep ENABLE as the last saved one to avoid spurious trip
                     if (self.spSensorsSettings()[i].enabled() != self.spSensors()[i].enabled()) {
-                        if (!self.printerState.isPrinting()) {  // avoids changins during printing.
+                        if (!self.printerState.isPrinting()) {  // avoids changes during printing.
                             if (self.spSensorsSettings()[i].enabled()) {                        
                                 if (self.debug) {console.log("Enabling: " + self.spSensorsSettings()[i].label())};
                                 OctoPrint.simpleApiCommand("SafetyPrinter", "toggleEnabled", {id: i, onoff: "on"});
@@ -514,7 +534,6 @@ $(function() {
             if (alertFlag) {
                 window.alert("The Safety Printer modifications cannot be applied during printing.");
             }
-
         };
 
         // ************* Functions for each button on Settings TAB:
@@ -528,12 +547,20 @@ $(function() {
                 self.updateOutput();
             }
         };
-
+        
         self.toggleFilterBtn = function() {
             if (self.debug) {console.log("toggleFilterBtn")};
             // enable or disable <R1> messages on terminal
-            self.tempMsgFilter(!self.tempMsgFilter());
+            var data = {
+                plugins: {
+                    SafetyPrinter: {
+                        terminalMsgFilter: !self.settingsViewModel.settings.plugins.SafetyPrinter.terminalMsgFilter(),
+                    }
+                }
+            };            
+            self.settingsViewModel.saveData(data);  
         };
+        
 
         self.resetBtn = function(item) {
             if (self.debug) {console.log("resetBtn")};
@@ -557,6 +584,135 @@ $(function() {
            if (self.debug) {console.log("addPortBtn")};
            self.updatePorts(self.settingsViewModel.settings.plugins.SafetyPrinter.additionalPort());   
         }
+
+        self.selectFirmwareFile = function (fileName) {
+            console.log(fileName);
+            self.firmwareFileName(fileName.name);
+            if (!self.notConnected) {
+                self.readyToFlash(true);
+            }
+        }
+
+        self.testAvrdudePath = function() {
+            var filePathRegEx_Linux = new RegExp("^(\/[^\0/]+)+$");
+            var filePathRegEx_Windows = new RegExp("^[A-z]\:\\\\.+.exe$");
+
+            if ( !filePathRegEx_Linux.test(self.configAvrdudePath()) && !filePathRegEx_Windows.test(self.configAvrdudePath()) ) {
+                self.avrdudePathText(gettext("The path is not valid"));
+                self.avrdudePathOk(false);
+                self.avrdudePathBroken(true);
+            } else {
+                $.ajax({
+                    url: API_BASEURL + "util/test",
+                    type: "POST",
+                    dataType: "json",
+                    data: JSON.stringify({
+                        command: "path",
+                        path: self.configAvrdudePath(),
+                        check_type: "file",
+                        check_access: "x"
+                    }),
+                    contentType: "application/json; charset=UTF-8",
+                    success: function(response) {
+                        if (!response.result) {
+                            if (!response.exists) {
+                                self.avrdudePathText(gettext("The path doesn't exist"));
+                            } else if (!response.typeok) {
+                                self.avrdudePathText(gettext("The path is not a file"));
+                            } else if (!response.access) {
+                                self.avrdudePathText(gettext("The path is not an executable"));
+                            }
+                        } else {
+                            self.avrdudePathText(gettext("The path is valid"));
+                        }
+                        self.avrdudePathOk(response.result);
+                        self.avrdudePathBroken(!response.result);
+                    }
+                })
+            }
+        };
+
+        self.startFlashFromFile = function() {
+            if (!self._checkIfReadyToFlash("file")) {
+                return;
+            }
+
+            self.configAvrdudePath(self.settingsViewModel.settings.plugins.SafetyPrinter.avrdude_path());
+            
+            //self.closePopup();
+            self.progressBarText("Flashing firmware...");
+            self.isBusy(true);
+            self.showAlert(false);
+
+            self.hexData.formData = {
+                port: self.connectedPort(),
+                //profile: self.selectedProfileIndex(),
+            };
+            self.hexData.submit();
+        };
+
+        self._checkIfReadyToFlash = function(source) {
+            var alert = undefined;
+
+            if (!self.loginState.isAdmin()){
+                alert = gettext("You need administrator privileges to flash firmware.");
+            }
+
+            if (self.printerState.isPrinting() || self.printerState.isPaused()){
+                alert = gettext("Printer is printing. Please wait for the print to be finished.");
+            }
+
+            if (source === "file" && !self.firmwareFileName()) {
+                alert = gettext("Firmware file is not specified");
+            } 
+
+            if (source === "file" && self.hexData.files[0].size > (100 * 1024)) {
+                alert = gettext("The firmware file is too large. File is " + Math.round(self.hexData.files[0].size / 1024) + "KB, limit is 100 KB.");
+            }
+
+            if (alert !== undefined) {
+                console.log(alert);
+                self.alertType("alert-warning");
+                self.alertMessage(alert);
+                self.showAlert(true);
+                return false;
+            } else {
+                self.alertMessage(undefined);
+                self.showAlert(false);
+            }
+
+            return true;
+        };
+
+        self.savePath = function() {
+            if (self.debug) {console.log("savePath")};            
+            self.configAvrdudePath.valueHasMutated();
+            var data = {
+                plugins: {
+                    SafetyPrinter: {
+                        avrdude_path: self.configAvrdudePath(),
+                    }
+                }
+            };
+            self.settingsViewModel.saveData(data);  
+    
+        };
+
+        self.savePort = function() {
+            self.settingsViewModel.settings.plugins.SafetyPrinter.additionalPort.valueHasMutated();
+            if (self.debug) {console.log("savePort")};
+            self.configSerialPort.valueHasMutated();
+            var data = {
+                plugins: {
+                    SafetyPrinter: {
+                        serialport: self.configSerialPort(),
+                        additionalPort: self.settingsViewModel.settings.plugins.SafetyPrinter.additionalPort(),
+                    }
+                }
+            };
+            self.settingsViewModel.saveData(data);  
+    
+        };
 
         // ************* Functions for each button on Terminal TAB:
 
@@ -885,6 +1041,10 @@ $(function() {
                     self.totalMsgs(data.totalmsgs);
                     percent = (parseInt(data.badmsgs)/parseInt(data.totalmsgs))*100;
                     self.badMsgs(data.badmsgs + " - " + percent.toFixed(1) + "%"); 
+                    self.reducedConn(data.reduced);
+                    if (self.reducedConn()){
+                        self.expertMode(false);
+                    }
                 }
                 
                 if (data.connectionStatus && self.notConnected()) {
@@ -893,7 +1053,11 @@ $(function() {
                     self.connectionCaption("Disconnect");
                     self.notConnected(false);
                     self.connectedPort(data.port);
-                    self.updateNavbar('Offline',false)
+                    self.updateNavbar('Offline',false);
+                    self.reducedConn(data.reduced);
+                    if (self.reducedConn()){
+                        self.expertMode(false);
+                    }
                     
                      //Update Settings tab
                     if (self.settingsVisible) {
@@ -911,6 +1075,7 @@ $(function() {
                     self.connection("Offline");
                     self.connectionCaption("Connect");
                     self.notConnected(true); 
+                    self.reducedConn(false);
 
                     self.updateNavbar('Offline',true)
 
@@ -985,6 +1150,11 @@ $(function() {
                 self.FWEEPROM(data.EEPROM);
                 self.FWCommProtocol(data.CommProtocol);
                 self.FWValidVersion(data.ValidVersion);
+                if (data.BoardType == "1") {
+                    self.FWBoardType("ATmega328P - Arduino Uno/Nano");
+                } else if (data.BoardType == "2") {
+                    self.FWBoardType("ATmega32u4 - Arduino Leonardo");
+                }
             }
             else if (data.type == "MCUInfo") {
                 self.MCUVolts(data.volts);
@@ -995,15 +1165,97 @@ $(function() {
             }
             else if (data.type == "error") {
                 self.updateNavbar('Error',true)
-                self.errorPopupOptions.text = data.errorMsg;
-                self.errorPopup = new PNotify(self.errorPopupOptions);
-                self.errorPopup.get().on('pnotify.cancel');
+                self.showPopup("error",gettext("SafetyPrinter Error"),data.errorMsg);
             }
             else if (data.type == "warning") {
                 self.updateNavbar('Warning',true)
-                self.warningPopupOptions.text = data.warningMsg;
-                self.warningPopup = new PNotify(self.warningPopupOptions);
-                self.warningPopup.get().on('pnotify.cancel');
+                self.showPopup("warning",gettext("SafetyPrinter Warning"),data.warningMsg);
+                
+            }
+            else if (data.type == "status") {
+                switch (data.status) {
+                    case "flasherror": {
+                        if (data.message) {
+                            message = gettext(data.message);
+                        } else {
+                            message = gettext("Unknown error");
+                        }
+
+                        if (data.subtype) {
+                            switch (data.subtype) {
+                                case "busy": {
+                                    message = gettext("Printer is busy.");
+                                    break;
+                                }
+                                case "port": {
+                                    message = gettext("Safety Printer MCU port is not available.");
+                                    break;
+                                }
+                                case "path": {
+                                    message = gettext("Cannot flash firmware, AVRDude path is invalid.");
+                                    break;
+                                }
+                                case "hexfile": {
+                                    message = gettext("Cannot read file to flash.");
+                                    break;
+                                }
+                                case "notconnected": {
+                                    message = gettext("Safety Printer MCU is not connected.");
+                                    break;
+                                }                                                 
+                                case "already_flashing": {
+                                    message = gettext("Already flashing.");
+                                }
+                            }
+                        }
+                        
+                        self.isBusy(false);
+                        self.showAlert(false);
+                        self.firmwareFileName("");                        
+                        break;
+                    }
+                    case "success": {
+                        self.showPopup("success", gettext("Safety Printer MCU flash successful"), "");
+                        self.isBusy(false);
+                        self.showAlert(false);
+                        self.firmwareFileName("");                        
+                        break;
+                    }
+                    case "progress": {
+                        if (data.subtype) {
+                            switch (data.subtype) {
+                                case "disconnecting": {
+                                    message = gettext("Disconnecting Safety Printer MCU...");
+                                    break;
+                                }
+                                case "startingflash": {
+                                    self.isBusy(true);
+                                    message = gettext("Starting flash...");
+                                    break;
+                                }                                                                
+                                case "boardreset": {
+                                        message = gettext("Resetting the board in bootloader mode...");
+                                        break;
+                                }
+                                case "reconnecting": {
+                                    message = gettext("Reconnecting to Safety Printer MCU...");
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (message) {
+                            self.progressBarText(message);
+                        }
+                        break;
+                    }
+                    case "info": {
+                        self.alertType("alert-info");
+                        self.alertMessage(data.status_description);
+                        self.showAlert(true);
+                        break;
+                    }
+                }
             }
 
         };
@@ -1018,7 +1270,7 @@ $(function() {
     OCTOPRINT_VIEWMODELS.push({
         construct: SafetyprinterViewModel,
         // ViewModels your plugin depends on, e.g. loginStateViewModel, settingsViewModel, ...
-        dependencies: ["settingsViewModel","printerStateViewModel"],
+        dependencies: ["settingsViewModel", "loginStateViewModel", "printerStateViewModel"],
         // Elements to bind to, e.g. #settings_plugin_SafetyPrinter, #tab_plugin_SafetyPrinter, ...
         elements: ["#settings_plugin_SafetyPrinter","#navbar_plugin_SafetyPrinter","#sidebar_plugin_SafetyPrinter","#tab_plugin_SafetyPrinter"] //
     });

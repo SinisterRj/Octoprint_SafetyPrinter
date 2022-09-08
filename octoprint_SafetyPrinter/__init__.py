@@ -1,6 +1,6 @@
 '''
  * Safety Printer Octoprint Plugin
- * Copyright (c) 2021 Rodrigo C. C. Silva [https://github.com/SinisterRj/Octoprint_SafetyPrinter]
+ * Copyright (c) 2021~22 Rodrigo C. C. Silva [https://github.com/SinisterRj/Octoprint_SafetyPrinter]
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,11 +19,17 @@
  *  Change log:
  *  
  * Version 1.1.1
- * 7/2/22 
- * 1) Include <r4> command in connection to receive answer from Arduino Leonardo.
- * 2) Arduino Leonardo VID & PID included on auto detect ports.
- * 3) Limits terminal lines to 300, as Octoprint's terminal.
- * 4) Include Timeout as argument on newSerialCommand function.
+ * 08/09/22 
+ * 1) Include <r4> command in connection to receive answer from Arduino Leonardo;
+ * 2) Arduino Leonardo VID & PID included on auto detect ports;
+ * 3) Limits terminal lines to 300, as Octoprint's terminal;
+ * 4) Include timeout as argument on newSerialCommand function;
+ * 5) Make MCU voltage and temperature warnings optional;
+ * 6) Include force as argument on newSerialCommand function;
+ * 7) Include firmware flash ability;
+ * 8) Include "save" button on serial port change on settings;
+ * 9) Include persistence to terminal filter;
+ * 10) Add threading lock to send_command.
  *
  *
  * Version 1.1.0
@@ -68,10 +74,17 @@ from . import Connection
 from octoprint.util import RepeatedTimer
 from octoprint.events import eventManager, Events
 from octoprint.server import user_permission
+import tempfile
+import threading
+import shutil
+from octoprint.server import admin_permission, NO_CONTENT
+from octoprint_SafetyPrinter.methods import avrdude
+import os
 
 totalSensors = 0
 
 class SafetyPrinterPlugin(
+    octoprint.plugin.BlueprintPlugin,
     octoprint.plugin.StartupPlugin,
     octoprint.plugin.SettingsPlugin,
     octoprint.plugin.AssetPlugin,
@@ -90,6 +103,7 @@ class SafetyPrinterPlugin(
         self._abort_timer = None
         self._wait_for_timelapse_timer = None
         self.loggingLevel = 0
+        self._flash_thread = None
 
     def initialize(self):
         self._console_logger = logging.getLogger("octoprint.plugins.safetyprinter")
@@ -149,6 +163,11 @@ class SafetyPrinterPlugin(
         self.loggingLevel = self._settings.get(["loggingLevel"])
         self._console_logger.debug("loggingLevel: %s" % self.loggingLevel)
 
+        self.notifyVoltageTemp = self._settings.get_boolean(["notifyVoltageTemp"])
+        self._console_logger.debug("notifyVoltageTemp: %s" % self.notifyVoltageTemp)
+
+        self._console_logger.debug("avrdude_path: %s" % self._settings.get(["avrdude_path"]))
+
     # ~~ ShutdonwPlugin mixin
     def on_shutdown(self):
         self._console_logger.info("Disconnectig Safety Printer MCU...")
@@ -170,16 +189,21 @@ class SafetyPrinterPlugin(
             notifyWarnings = True,
             useEmoji = True,
             additionalPort = "",
+            notifyVoltageTemp = True,
+            avrdude_path = "/usr/bin/avrdude",
+            terminalMsgFilter = False
         )
 
     def on_settings_save(self, data):
         octoprint.plugin.SettingsPlugin.on_settings_save(self, data)
+
         self.abortTimeout = self._settings.get_int(["abortTimeout"])
         self.rememberCheckBox = self._settings.get_boolean(["rememberCheckBox"])
         self.lastCheckBoxValue = self._settings.get_boolean(["lastCheckBoxValue"])
         self.turnOffPrinter = self._settings.get_boolean(["turnOffPrinter"])
         self.showTerminal = self._settings.get_boolean(["showTerminal"])
         self.loggingLevel = self._settings.get_int(["loggingLevel"]) 
+        #self.notifyVoltageTemp = self._settings.get_boolean(["notifyVoltageTemp"])
         #self._console_logger.setLevel(self.loggingLevel)
         
         self._console_logger.info("User changed settings.")
@@ -193,6 +217,9 @@ class SafetyPrinterPlugin(
         self._console_logger.debug("notifyWarnings: %s" % self._settings.get(["notifyWarnings"]))
         self._console_logger.debug("useEmoji: %s" % self._settings.get(["useEmoji"]))
         self._console_logger.debug("additionalPort: %s" % self._settings.get(["additionalPort"]))
+        self._console_logger.debug("notifyVoltageTemp: %s" % self._settings.get(["notifyVoltageTemp"]))
+        self._console_logger.debug("avrdude_path : %s" % self._settings.get(["avrdude_path"]))
+
 
     def get_template_vars(self):
         return dict(
@@ -265,7 +292,8 @@ class SafetyPrinterPlugin(
             abortShutdown=[],
             refreshMCUStats=[],
             forceRenew=[],
-            settingsVisible=["status"]
+            settingsVisible=["status"],
+            flashFile=["fileName"]
         )
 
     def on_api_command(self, command, data):
@@ -304,6 +332,8 @@ class SafetyPrinterPlugin(
                 self.forceRenew()
             elif command == "settingsVisible":
                 self.settingsVisible(bool(data["status"]))
+            elif command == "flashFile":
+                self.flashFile(str(data["fileName"]))
             response = "POST request (%s) successful" % command
             return flask.jsonify(response=response, data=data, status=200), 200
         except Exception as e:
@@ -316,13 +346,13 @@ class SafetyPrinterPlugin(
             if self.conn.is_connected():
                 self.conn.resetTrip()
                 self._console_logger.info("Resseting ALL trips.")
-                self.conn.newSerialCommand("<C1>",10)
+                self.conn.newSerialCommand("<C1>",10, False)
             
     def sendTrip(self):
         if self.conn:
             if self.conn.is_connected():
                 self._console_logger.info("Virtual Emergency Button pressed.")            
-                self.conn.newSerialCommand("<C2>",10)
+                self.conn.newSerialCommand("<C2>",10, True)
 
     def toggleEnabled(self, index, status):
         if self.conn:
@@ -331,37 +361,37 @@ class SafetyPrinterPlugin(
                     self._console_logger.info("Enabling sensor #" + str(index))
                 else:
                     self._console_logger.info("Disabling sensor #" + str(index))
-                self.conn.newSerialCommand("<C3 " + str(index) + " " + status + ">",10)
+                self.conn.newSerialCommand("<C3 " + str(index) + " " + status + ">",10, False)
 
     def changeSP(self, index, newSP):
         if self.conn:            
             if self.conn.is_connected():
                 self._console_logger.info("Changing sensor #" + str(index) + " setpoint to:" + newSP)
-                self.conn.newSerialCommand("<C4 " + str(index) + " " + newSP + ">",10)
+                self.conn.newSerialCommand("<C4 " + str(index) + " " + newSP + ">",10, False)
 
     def changeTimer(self, index, newTimer):
         if self.conn:
             if self.conn.is_connected():
                 self._console_logger.info("Changing sensor #" + str(index) + " timer to:" + newTimer)
-                self.conn.newSerialCommand("<C7 " + str(index) + " " + newTimer + ">",10)
+                self.conn.newSerialCommand("<C7 " + str(index) + " " + newTimer + ">",10, False)
 
     def sendCommand(self,newCommand):
         if self.conn:
             if self.conn.is_connected():
                 self._console_logger.info("Sending terminal command: " + newCommand)
-                self.conn.newSerialCommand(newCommand,10)
+                self.conn.newSerialCommand(newCommand,10, False)
     
     def resetSettings(self, index):
         if self.conn:
             if self.conn.is_connected():
                 self._console_logger.info("Loading sensor #" + str(index) + " default configurations.")
-                self.conn.newSerialCommand("<C8 " + str(index) + ">",10)
+                self.conn.newSerialCommand("<C8 " + str(index) + ">",10, False)
 
     def saveEEPROM(self):
         if self.conn:
             if self.conn.is_connected():
                 self._console_logger.info("Saving configuration to EEPROM.")
-                self.conn.newSerialCommand("<C5>",10)
+                self.conn.newSerialCommand("<C5>",10, False)
 
     def toggleShutdown(self):
         self.lastCheckBoxValue = self._automatic_shutdown_enabled
@@ -405,6 +435,12 @@ class SafetyPrinterPlugin(
     def settingsVisible(self,status):
         if self.conn:
             self.conn.settingsVisible = status
+
+    '''def flashFile(self, fileName):
+        if self.conn:
+            self._console_logger.info("Flashing new firmware to MCU (" + fileName + ").")
+            self.conn.flashFirmware(fileName)
+    '''
 
     def on_event(self, event, payload):
 
@@ -482,7 +518,7 @@ class SafetyPrinterPlugin(
         if self.turnOffPrinter:
             if self.conn.is_connected():
                 self._console_logger.info("Turning off the printer.")
-                self.conn.newSerialCommand("<C6 off>",10)           
+                self.conn.newSerialCommand("<C6 off>",10, False)           
 
         shutdown_command = self._settings.global_get(["server", "commands", "systemShutdownCommand"])
         self._console_logger.info("Shutting down system with command: {command}".format(command=shutdown_command))
@@ -494,8 +530,138 @@ class SafetyPrinterPlugin(
             self._console_logger.exception("Error when shutting down: {error}".format(error=e))
             return
 
+    #~~ BluePrint API
+
+    @octoprint.plugin.BlueprintPlugin.route("/status", methods=["GET"])
+    @octoprint.server.util.flask.restricted_access
+    def status(self):
+        return flask.jsonify(flashing=self._flash_thread is not None)
+
+    @octoprint.plugin.BlueprintPlugin.route("/flash", methods=["POST"])
+    @octoprint.server.util.flask.restricted_access
+    @octoprint.server.admin_permission.require(403)
+    def flash_firmware(self):
+
+        if not self.conn or not self.conn.is_connected():
+            error_message = "Safety Printer MCU must be connected to flash."
+            self._send_status("flasherror", subtype="notconnected", message=error_message)
+            self.conn.terminal(error_message,"ERROR")            
+            return flask.make_response(NO_CONTENT)
+
+        if self._printer.is_printing():
+            error_message = "Cannot flash firmware, printer is busy"
+            self._send_status("flasherror", subtype="busy", message=error_message)
+            self.conn.terminal(error_message,"ERROR")
+            return flask.make_response(NO_CONTENT)
+
+        value_source = flask.request.json if flask.request.json else flask.request.values
+
+        if not "port" in value_source:
+            error_message = "Cannot flash firmware, Safety Printer MCU port was not specified."
+            self._send_status("flasherror", subtype="port", message=error_message)
+            self.conn.terminal(error_message,"ERROR")
+            return flask.make_response(NO_CONTENT)
+
+        mcu_port = value_source["port"]
+
+        self._settings.save()
+
+        if not avrdude._check_avrdude(self):
+            error_message = "Cannot flash firmware, AVRDude path is invalid"
+            self._send_status("flasherror", subtype="path", message=error_message)
+            self.conn.terminal(error_message,"ERROR")
+            return flask.make_response(NO_CONTENT)
+
+        file_to_flash = None
+
+        input_name = "file"
+        input_upload_path = input_name + "." + self._settings.global_get(["server", "uploads", "pathSuffix"])
+
+        if input_upload_path in flask.request.values:
+            # flash from uploaded file
+            uploaded_hex_path = flask.request.values[input_upload_path]
+
+            try:
+                file_to_flash = tempfile.NamedTemporaryFile(mode='r+b', delete=False)
+                file_to_flash.close()
+                shutil.move(os.path.abspath(uploaded_hex_path), file_to_flash.name)
+            except:
+                if file_to_flash:
+                    try:
+                        os.remove(file_to_flash.name)
+                    except:
+                        self.conn.terminal("Error while trying to delete the temporary hex file.","DEBUG")
+                error_message = "Error while copying the uploaded hex file."
+                self.conn.terminal(error_message,"ERROR")
+                self._send_status("flasherror", subtype="hexfile", message=error_message)
+
+        if self._start_flash_process(file_to_flash.name, mcu_port):
+            return flask.make_response(NO_CONTENT)
+        else:
+            error_message = "Cannot flash firmware, already flashing"
+            self._send_status("flasherror", subtype="already_flashing")
+            self.conn.terminal(error_message,"WARNING")
+            return flask.make_response(NO_CONTENT)
+
+    def _start_flash_process(self, hex_file, mcu_port):
+        
+        if self.conn:
+            if self.conn.is_connected():
+                self.conn.terminal("Starting Safety Printer MCU flashing on port: " + mcu_port + ".","INFO")
+                self._send_status("progress", subtype="boardreset")
+                self.conn.newSerialCommand("<C9 0>",10 , True)
+                
+                if self._flash_thread is not None:
+                    return False
+
+                self._flash_thread = threading.Thread(target=self._flash_worker, args=(hex_file, mcu_port))
+                self._flash_thread.daemon = True
+                self.on_shutdown() #Disconect from the MCU
+                self._flash_thread.start()
+
+                return True
+        return False
+
+    def _flash_worker(self, firmware, mcu_port):
+
+        try:
+            self._logger.info("Firmware update started")
+
+            if self.conn:
+                if self.conn.is_connected():
+                    self.on_shutdown()
+                    self._send_status("progress", subtype="disconnecting")
+
+            self._send_status("progress", subtype="startingflash")
+
+            try:
+                if avrdude._flash_avrdude(self, firmware=firmware, printer_port=mcu_port):
+                    time.sleep(1)
+                    self._send_status("progress", subtype="reconnecting")                
+                    self.new_connection() # Reconnect to the Safety Printer MCU.
+                    time.sleep(0.5)
+                    message = u"Flashing successful."
+                    self.conn.terminal(message,"INFO") 
+                    self._send_status("success")  
+   
+            except:
+                self.conn.terminal("Error while attempting to flash","ERROR") 
+
+            finally:
+                try:
+                    os.remove(firmware)
+                except:
+                    self.conn.terminal(u"Could not delete temporary hex file at {}".format(firmware),"WARNING") 
+
+        finally:
+            self._flash_thread = None
+
+    def _send_status(self, status, subtype=None, message=None):
+        self._plugin_manager.send_plugin_message(self._identifier, dict(type="status", status=status, subtype=subtype, message=message))
+
+
 __plugin_name__ = "Safety Printer"
-__plugin_version__ = "1.1.1rc1" #just used for Betas and release candidates. Change in Setup.py for main releases.
+__plugin_version__ = "1.1.1rc2" #just used for Betas and release candidates. Change in Setup.py for main releases.
 __plugin_pythoncompat__ = ">=2.7,<4" # python 2 and 3
 
 def __plugin_load__():
