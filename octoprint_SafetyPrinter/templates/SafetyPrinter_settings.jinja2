@@ -12,7 +12,7 @@
             <span data-bind="style: {color: notConnected()? '#EB9605' : 'revert'}"><strong data-bind="text: connection"></strong></span> <i class="icon-warning-sign" style="color: #FFD21C" data-bind="visible: reducedConn()" title="Communication reduced to essentials and no configuration is allowed. It's highly recommended to update this plugin and/or safety printer MCU firmware."></i>
         </td>
         <td style="width: 20%">
-            <button data-bind="click: connectBtn, text: connectionCaption" class="btn"></button>
+            <button data-bind="click: connectBtn, text: connectionCaption, enable: !isBusy()" class="btn"></button>
         </td>
     </tr>
     <tr>
@@ -87,7 +87,7 @@
         <td></td>
     </tr>
     <tr>
-        <td style="text-align:right">CPU&nbsp;&nbsp;</td>
+        <td style="text-align:right">CPU:&nbsp;&nbsp;</td>
         <td><span data-bind="text: FWBoardType"></span>
         </td>            
         <td></td>
@@ -95,7 +95,7 @@
     <tr>
         <td colspan="3">
         </br>
-        <h4>Firmware Update:</h4>        
+        <h4>Firmware Update: <i class="fas fa-info-circle" title="Modified from: Firmware Updater plug-in by Ben Lye, Gina Häußge and Nicanor Romero Venier, https://github.com/OctoPrint/OctoPrint-FirmwareUpdater."></i></h4>        
         </td>
     </tr>
         <td style="text-align:right">AVR Dude Path:&nbsp;&nbsp;</td>
@@ -130,7 +130,7 @@
     <tr>
         <td></td>
         <td>
-          <button class="btn btn-primary btn-block" data-bind="attr: {title: fileFlashButtonText}, click: startFlashFromFile, enable: firmwareFileName && !isBusy(), css: {disabled: !firmwareFileName() || isBusy()}">{{ _('Flash from File') }}</button>  
+          <button class="btn btn-primary btn-block" data-bind="attr: {title: fileFlashButtonText}, click: startFlashFromFile, disable: !firmwareFileName() || isBusy() || notConnected()">{{ _('Flash from File') }}</button>  
         </td>
         <td></td>
     <tr>

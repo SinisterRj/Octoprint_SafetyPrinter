@@ -18,8 +18,8 @@
  * 
  *  Change log:
  *  
- * Version 1.1.1
- * 08/09/22 
+ * Version 1.2.0
+ * 27/09/22 
  * 1) Include <r4> command in connection to receive answer from Arduino Leonardo;
  * 2) Arduino Leonardo VID & PID included on auto detect ports;
  * 3) Limits terminal lines to 300, as Octoprint's terminal;
@@ -107,7 +107,7 @@ class SafetyPrinterPlugin(
 
     def initialize(self):
         self._console_logger = logging.getLogger("octoprint.plugins.safetyprinter")
-
+        
     def new_connection(self):
         self._console_logger.info("Attempting to connect to Safety Printer MCU ...")
         self.conn = Connection.Connection(self)
@@ -170,10 +170,11 @@ class SafetyPrinterPlugin(
 
     # ~~ ShutdonwPlugin mixin
     def on_shutdown(self):
-        self._console_logger.info("Disconnectig Safety Printer MCU...")
+        self._console_logger.info("#############################  on_shutdown")
+        self._console_logger.info("Disconnecting from Safety Printer MCU...")
         self._commTimer.cancel()
         self.conn.abortSerialConn = True
-        self.conn.closeConnection()
+        self.conn.closeConnection()        
                             
     ##~~ SettingsPlugin mixin    
     def get_settings_defaults(self):
@@ -532,6 +533,9 @@ class SafetyPrinterPlugin(
 
     #~~ BluePrint API
 
+    def is_blueprint_csrf_protected(self):
+        return True
+
     @octoprint.plugin.BlueprintPlugin.route("/status", methods=["GET"])
     @octoprint.server.util.flask.restricted_access
     def status(self):
@@ -645,7 +649,8 @@ class SafetyPrinterPlugin(
                     self._send_status("success")  
    
             except:
-                self.conn.terminal("Error while attempting to flash","ERROR") 
+                self.conn.terminal("Error while attempting to flash","ERROR")
+                self.on_shutdown() #Disconect from the MCU
 
             finally:
                 try:

@@ -588,7 +588,7 @@ $(function() {
         self.selectFirmwareFile = function (fileName) {
             console.log(fileName);
             self.firmwareFileName(fileName.name);
-            if (!self.notConnected) {
+            if (!self.notConnected()) {
                 self.readyToFlash(true);
             }
         }
@@ -1036,7 +1036,6 @@ $(function() {
 
             else if (data.type == "connectionUpdate") {
             // Update connection status
-
                 if (data.connectionStatus) {
                     self.totalMsgs(data.totalmsgs);
                     percent = (parseInt(data.badmsgs)/parseInt(data.totalmsgs))*100;
@@ -1047,7 +1046,7 @@ $(function() {
                     }
                 }
                 
-                if (data.connectionStatus && self.notConnected()) {
+                if (data.connectionStatus && self.notConnected()) { // Changed connection status to online
                     self.connection("Online");
                     //self.connectionColor("");
                     self.connectionCaption("Disconnect");
@@ -1071,7 +1070,7 @@ $(function() {
                         self.tripPopup.update(self.tripPopupOptions);
                     }
 
-                } else if ((!data.connectionStatus && !self.notConnected()) || (data.failure)) {
+                } else if ((!data.connectionStatus && !self.notConnected()) || (data.failure)) {  // Changed connection status to online
                     self.connection("Offline");
                     self.connectionCaption("Connect");
                     self.notConnected(true); 
@@ -1230,7 +1229,7 @@ $(function() {
                                 }
                                 case "startingflash": {
                                     self.isBusy(true);
-                                    message = gettext("Starting flash...");
+                                    message = gettext("Flashing...");
                                     break;
                                 }                                                                
                                 case "boardreset": {

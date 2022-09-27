@@ -546,8 +546,9 @@ class Connection():
 
     def update_ui_connection_status(self):
         # Updates knockout connection status
-
+        
         if ((self.settingsVisible) or (self.forceRenewConn)):
+            #self._console_logger.info("connectionStatus:" + str(self._connected) + ", port:" + str(self.connectedPort) + ", totalmsgs:" + str(self.totalmsgs) + ", badmsgs: " + str(self.badmsgs) + ", failure: " + str(self.connFail) + ", reduced: " + str(self.reducedComm))    
             self._plugin_manager.send_plugin_message(self._identifier, {"type": "connectionUpdate", "connectionStatus": self._connected, "port": self.connectedPort, "totalmsgs": self.totalmsgs, "badmsgs": self.badmsgs, "failure" : self.connFail, "reduced" : self.reducedComm})    
             if (self.forceRenewConn):
                 self.forceRenewConn = False
@@ -722,10 +723,10 @@ class Connection():
                     time.sleep(0.05)
                     if self.is_connected():
                         newline = self.serialConn.readline()
-                    if not newline.strip():
-                        keepReading = False
-                    else:
-                        data += newline.decode()
+                        if not newline.strip():
+                            keepReading = False
+                        else:
+                            data += newline.decode()
                 
                 if data: 
                     data = data.strip()
