@@ -666,7 +666,7 @@ class SafetyPrinterPlugin(
 
 
 __plugin_name__ = "Safety Printer"
-__plugin_version__ = "1.1.1rc2" #just used for Betas and release candidates. Change in Setup.py for main releases.
+__plugin_version__ = "1.2.0rc1" #just used for Betas and release candidates. Change in Setup.py for main releases.
 __plugin_pythoncompat__ = ">=2.7,<4" # python 2 and 3
 
 def __plugin_load__():
