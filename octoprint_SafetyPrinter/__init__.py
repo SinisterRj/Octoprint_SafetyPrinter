@@ -17,9 +17,10 @@
  * 
  * 
  *  Change log:
+ *
  *  
  * Version 1.2.0
- * 27/09/22 
+ * 07/10/22
  * 1) Include <r4> command in connection to receive answer from Arduino Leonardo;
  * 2) Arduino Leonardo VID & PID included on auto detect ports;
  * 3) Limits terminal lines to 300, as Octoprint's terminal;
@@ -29,7 +30,9 @@
  * 7) Include firmware flash ability;
  * 8) Include "save" button on serial port change on settings;
  * 9) Include persistence to terminal filter;
- * 10) Add threading lock to send_command.
+ * 10) Add threading lock to send_command;
+ * 11) Add pyserial requirement on setup.py;
+ * 12) Fix a bug that don't install avrdude.py method.
  *
  *
  * Version 1.1.0
@@ -666,7 +669,7 @@ class SafetyPrinterPlugin(
 
 
 __plugin_name__ = "Safety Printer"
-__plugin_version__ = "1.2.0rc1" #just used for Betas and release candidates. Change in Setup.py for main releases.
+__plugin_version__ = "1.2.0rc2" #just used for Betas and release candidates. Change in Setup.py for main releases.
 __plugin_pythoncompat__ = ">=2.7,<4" # python 2 and 3
 
 def __plugin_load__():
