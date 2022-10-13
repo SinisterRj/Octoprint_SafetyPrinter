@@ -1168,18 +1168,18 @@ $(function() {
                 self.MCUAvgTime(data.avgTime);
             }
             else if (data.type == "error") {
-                self.updateNavbar('Error',true)
+                self.updateNavbar('Error',true);
                 self.showPopup("error",gettext("SafetyPrinter Error"),data.errorMsg);
             }
             else if (data.type == "warning") {
-                self.updateNavbar('Warning',true)
+                self.updateNavbar('Warning',true);
                 self.showPopup("warning",gettext("SafetyPrinter Warning"),data.warningMsg);
                 self.warning(true);
                 self.warningMsg(data.warningMsg);
                 
             }
             else if (data.type == "warningClear") {
-                self.updateNavbar('Warning',false)
+                self.updateNavbar('Warning',false);
                 self.warning(false);
             }
             else if (data.type == "status") {
