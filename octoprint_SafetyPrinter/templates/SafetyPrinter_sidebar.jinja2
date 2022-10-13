@@ -17,7 +17,7 @@
     <td style="text-align: right" colspan="2"><span data-bind="visible: notConnected"><button data-bind="click: connectBtn" class="btn">Connect</button></span></td>
   </tr> 
   <tr data-bind="hidden: notConnected">
-    <td><span data-bind="style: {color: interlock()? 'red' : 'revert'}">Status: <strong data-bind="text: interlock()? 'TRIP' : 'Normal' "></strong></span> <i class="icon-warning-sign" style="color: #FFD21C" data-bind="visible: reducedConn()" title="Communication reduced to essentials and no configuration is allowed. It's highly recommended to update this plugin and/or safety printer MCU firmware."></i></td>
+    <td><span data-bind="style: {color: interlock()? 'red' : 'revert'}">Status: <strong data-bind="text: interlock()? 'TRIP' : 'Operational' "></strong></span> <i class="icon-warning-sign" style="color: #FFD21C" data-bind="visible: warning(), attr:{title: warningMsg()}"></i></td>
     <td style="text-align: right" colspan="2"><span data-bind="visible: interlock"><button data-bind="click: tripResetBtn" class="btn">Reset</button></span></td>
   </tr>
   <tbody data-bind="foreach: spSensors">

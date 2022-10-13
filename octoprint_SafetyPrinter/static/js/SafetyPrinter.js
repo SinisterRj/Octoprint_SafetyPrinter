@@ -76,6 +76,8 @@ $(function() {
         self.interlock = ko.observable(false);
         self.activeSensors = "";
         self.confirmVisible = ko.observable(false);
+        self.warning = ko.observable(false);
+        self.warningMsg = ko.observable("");
 
         self.spSensors = ko.observableArray([
            new spSensorsType(false,"","offline","gray",false,false,"0","0","0",false),
@@ -1043,6 +1045,8 @@ $(function() {
                     self.reducedConn(data.reduced);
                     if (self.reducedConn()){
                         self.expertMode(false);
+                        self.warning(true);
+                        self.warninMsg("Communication reduced to essentials and no configuration is allowed. It's highly recommended to update this plugin and/or safety printer MCU firmware.");
                     }
                 }
                 
@@ -1075,6 +1079,7 @@ $(function() {
                     self.connectionCaption("Connect");
                     self.notConnected(true); 
                     self.reducedConn(false);
+                    self.warning(false);
 
                     self.updateNavbar('Offline',true)
 
@@ -1169,7 +1174,13 @@ $(function() {
             else if (data.type == "warning") {
                 self.updateNavbar('Warning',true)
                 self.showPopup("warning",gettext("SafetyPrinter Warning"),data.warningMsg);
+                self.warning(true);
+                self.warningMsg(data.warningMsg);
                 
+            }
+            else if (data.type == "warningClear") {
+                self.updateNavbar('Warning',false)
+                self.warning(false);
             }
             else if (data.type == "status") {
                 switch (data.status) {

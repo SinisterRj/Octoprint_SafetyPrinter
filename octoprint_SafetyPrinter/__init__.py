@@ -32,7 +32,11 @@
  * 9) Include persistence to terminal filter;
  * 10) Add threading lock to send_command;
  * 11) Add pyserial requirement on setup.py;
- * 12) Fix a bug that don't install avrdude.py method.
+ * 12) Fix a bug that don't install avrdude.py method;
+ * 13) Fix a bug that gives an error when the selected port don't exists;
+ * 14) Update comm. protocol to version 6;
+ * 15) Fix a bug that don't close the connection upon a flash failure;
+ * 16) Fix warning behaviour when warning finishes.
  *
  *
  * Version 1.1.0
@@ -107,9 +111,8 @@ class SafetyPrinterPlugin(
         self._wait_for_timelapse_timer = None
         self.loggingLevel = 0
         self._flash_thread = None
-
-    def initialize(self):
-        self._console_logger = logging.getLogger("octoprint.plugins.safetyprinter")
+        self._console_logger = logging.getLogger("octoprint.plugins.safetyprinter") 
+        #  Use self._logger.info for debug
         
     def new_connection(self):
         self._console_logger.info("Attempting to connect to Safety Printer MCU ...")
@@ -173,7 +176,6 @@ class SafetyPrinterPlugin(
 
     # ~~ ShutdonwPlugin mixin
     def on_shutdown(self):
-        self._console_logger.info("#############################  on_shutdown")
         self._console_logger.info("Disconnecting from Safety Printer MCU...")
         self._commTimer.cancel()
         self.conn.abortSerialConn = True
@@ -632,7 +634,7 @@ class SafetyPrinterPlugin(
     def _flash_worker(self, firmware, mcu_port):
 
         try:
-            self._logger.info("Firmware update started")
+            self._console_logger.info("Firmware update started")
 
             if self.conn:
                 if self.conn.is_connected():
@@ -649,7 +651,10 @@ class SafetyPrinterPlugin(
                     time.sleep(0.5)
                     message = u"Flashing successful."
                     self.conn.terminal(message,"INFO") 
-                    self._send_status("success")  
+                    self._send_status("success")
+
+                else:
+                    self.on_shutdown() #Disconect from the MCU
    
             except:
                 self.conn.terminal("Error while attempting to flash","ERROR")
@@ -668,8 +673,6 @@ class SafetyPrinterPlugin(
         self._plugin_manager.send_plugin_message(self._identifier, dict(type="status", status=status, subtype=subtype, message=message))
 
 
-__plugin_name__ = "Safety Printer"
-__plugin_version__ = "1.2.0rc2" #just used for Betas and release candidates. Change in Setup.py for main releases.
 __plugin_pythoncompat__ = ">=2.7,<4" # python 2 and 3
 
 def __plugin_load__():

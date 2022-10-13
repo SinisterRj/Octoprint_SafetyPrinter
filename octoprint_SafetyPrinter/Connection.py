@@ -33,8 +33,9 @@ if ((sys.platform == 'linux') or (sys.platform =='linux2')):
 class Connection():
     def __init__(self, plugin):
 
-        self.compatibleFirmwareCommProtocol = ["5"]
+        self.compatibleFirmwareCommProtocol = ["6"]
         self.reducedComm = False;
+        self.warningStatus = False;
 
         # Serial connection variables
         self.ports = []
@@ -50,6 +51,7 @@ class Connection():
 
         # Arrays for sensor status:
         self.interlockStatus = "F"
+        self.resetInhibit = "F"
         self.tripReseted = False
         self.tripMsgcount = 0
         self.sensorLabel = []
@@ -163,6 +165,14 @@ class Connection():
                             self.connFail = True
                             self.terminal("Safety Printer MCU connection error: " + str(e),"ERROR")
                             self.update_ui_connection_status()
+                        except TypeError:
+                            self.forceRenewConn = True
+                            self.connFail = True
+                            self._connected = False
+                            self.connectedPort = ""
+                            self.terminal("Safety Printer MCU connection error: Invalid selected port.","ERROR")
+                            self.update_ui_connection_status()
+
 
             if not self._connected:
                 self.forceRenewConn = True
@@ -262,7 +272,9 @@ class Connection():
             self.terminal("Safety Printer MCU connection closed.","Info")
             self.update_ui_connection_status()
         else :
+            self._connected = False
             self.terminal("Safety Printer MCU not connected.","Info")
+            self.update_ui_connection_status()
 
     # below code "stolen" from https://gitlab.com/mosaic-mfg/palette-2-plugin/blob/master/octoprint_palette2/Omega.py
     #| Chip                | VID  | PID                      | Board                           | Link                                                                     | Note  
@@ -316,7 +328,12 @@ class Connection():
         return ports
 
     def isPrinterPort(self, selected_port, loggin):
-        selected_port = os.path.realpath(selected_port)
+        try:             
+            selected_port = os.path.realpath(selected_port)
+        except TypeError:
+            self._console_logger.info("Selected port does not exists.")
+            return False
+
         #printer_port = self._printer.get_current_connection()[1]
         if self._printer.get_current_connection()[0] == "Closed":
             if loggin:
@@ -363,7 +380,7 @@ class Connection():
 
     def update_ui_status(self):
         # Send one message for each sensor with all status
-        if self._connected:            
+        if self._connected and not self.reducedComm:            
             
             if (len(self.sensorLabel) == 0):
                 self.update_ui_sensor_labels()
@@ -380,8 +397,9 @@ class Connection():
                 self.sensorLabel = []
                 return
 
+            vpos1 = 3
             buffer = self.interlockStatus
-            self.interlockStatus = responseStr[3] 
+            self.interlockStatus = responseStr[vpos1] 
             if self.tripReseted:
                 #wait 5 msgs after trip reset to consider a new trip if there is no change (user reseted with an alarm)
                 self.tripMsgcount += 1
@@ -397,31 +415,48 @@ class Connection():
                     self.terminal("New INTERLOCK detected.","TRIP")
                 self._plugin_manager.send_plugin_message(self._identifier, {"type": "interlockUpdate", "interlockStatus": self.interlockStatus})
 
+            buffer = self.resetInhibit
+            vpos1 = vpos1 + 2
+            self.resetInhibit = responseStr[vpos1] 
+            if ((self.resetInhibit != buffer) or (self.forceRenew)) and (self.resetInhibit == "T"):
+                self.terminal("Reset button inhibited due to continous operation. Check wiring.","WARNING")
+
             buffer = self.memWarning
-            self.memWarning = responseStr[5] 
+            vpos1 = vpos1 + 2
+            self.memWarning = responseStr[vpos1] 
             if ((self.memWarning != buffer) or (self.forceRenew)) and (self.memWarning == "T"):
                 self.terminal("SafetyPrinter MCU low memory.","WARNING")
 
             buffer = self.execWarning
-            self.execWarning = responseStr[7] 
+            vpos1 = vpos1 + 2
+            self.execWarning = responseStr[vpos1] 
             if ((self.execWarning != buffer) or (self.forceRenew)) and (self.execWarning == "T"):
                 self.terminal("SafetyPrinter MCU high update cycle time.","WARNING")
 
             buffer = self.tempWarning
-            self.tempWarning = responseStr[9]            
+            vpos1 = vpos1 + 2
+            self.tempWarning = responseStr[vpos1]            
             if ((self.tempWarning != buffer) or (self.forceRenew)) and (self.tempWarning == "T"):
                 if self._settings.get_boolean(["notifyVoltageTemp"]):
                     self.terminal("SafetyPrinter MCU board temperature out of safe limits.","WARNING")
 
             buffer = self.voltWarning
-            self.voltWarning = responseStr[11]           
+            vpos1 = vpos1 + 2
+            self.voltWarning = responseStr[vpos1]           
             if ((self.voltWarning != buffer) or (self.forceRenew)) and (self.voltWarning == "T"):
                 if self._settings.get_boolean(["notifyVoltageTemp"]):
                     self.terminal("SafetyPrinter MCU board suply voltage out of safe limits.","WARNING")
 
-            #self._plugin_manager.send_plugin_message(self._identifier, {"type": "warningUpdate", "memWarning": self.memWarning, "execWarning": self.execWarning, "tempWarning": self.tempWarning, "voltWarning": self.voltWarning})
+            lastWarningStatus = self.warningStatus
+            self.warningStatus = False
+            if ((self.resetInhibit == "T") or (self.memWarning == "T") or (self.execWarning == "T") or (self._settings.get_boolean(["notifyVoltageTemp"]) and ((self.tempWarning == "T") or (self.voltWarning == "T")))):
+                self.warningStatus = True
 
-            vpos1 = 12
+            if ((not self.warningStatus) and (lastWarningStatus)):
+                self.warningStatus = False
+                self._plugin_manager.send_plugin_message(self._identifier, {"type": "warningClear"})
+
+            vpos1 = vpos1 + 1
 
             for x in range(totalSensors):
                 vpos1 = responseStr.find('#',vpos1)
