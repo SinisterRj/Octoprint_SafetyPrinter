@@ -642,12 +642,15 @@ class Connection():
 
         elif ttype == "warning":
             self._console_logger.warning(msg)
+            popup = "WARNING: " + msg
             
             if self._settings.get_boolean(["notifyWarnings"]):
-                popup = "WARNING: " + msg
-                self._plugin_manager.send_plugin_message(self._identifier, {"type": "warning", "warningMsg": popup})
+                self._plugin_manager.send_plugin_message(self._identifier, {"type": "warning", "warningMsg": popup, "popup" : True})
                 popup = "\U000026A0 " "SafetyPrinter " + popup
                 self.app_notification(popup)
+            else:
+                self._plugin_manager.send_plugin_message(self._identifier, {"type": "warning", "warningMsg": popup, "popup" : False})
+
 
         elif  ttype == "error":
             self._console_logger.error(msg)

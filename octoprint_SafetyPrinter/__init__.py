@@ -618,7 +618,7 @@ class SafetyPrinterPlugin(
             if self.conn.is_connected():
                 self.conn.terminal("Starting Safety Printer MCU flashing on port: " + mcu_port + ".","INFO")
                 self._send_status("progress", subtype="boardreset")
-                self.conn.newSerialCommand("<C9 0>",10 , True)
+                self.conn.newSerialCommand("<C9 500>",10 , True)
                 
                 if self._flash_thread is not None:
                     return False

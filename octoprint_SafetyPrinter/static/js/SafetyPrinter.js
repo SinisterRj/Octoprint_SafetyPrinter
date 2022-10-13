@@ -288,7 +288,7 @@ $(function() {
         };
 
         self.onStartupComplete = function() {
-            if (self.debug) {console.log("onStartupComplete")};
+            if (self.debug) {console.log("SafetyPrinter: onStartupComplete")};
             //Show or hide terminal TAB.
             self.showHideTab();
             OctoPrint.simpleApiCommand("SafetyPrinter", "forceRenew"); 
@@ -296,7 +296,7 @@ $(function() {
 
       
         self.showHideTab = function() {
-            if (self.debug) {console.log("showHideTab")};
+            if (self.debug) {console.log("SafetyPrinter: showHideTab")};
             // Shows or hides the terminal TAB on UI.
             if ((self.settingsViewModel.settings.plugins.SafetyPrinter.showTerminal() == true) && (!document.getElementById("tab_plugin_SafetyPrinter_link"))) {
                 $("<li id='tab_plugin_SafetyPrinter_link' class='' data-bind='allowBindings: true'><a href='#tab_plugin_SafetyPrinter' data-toggle='tab'>Safety Printer</a></li>").appendTo("#tabs");
@@ -308,7 +308,7 @@ $(function() {
         // ************* Functions of the terminal TAB:
 
         self.terminalScrollEvent = _.throttle(function () {
-            if (self.debug) {console.log("terminalScrollEvent")};
+            if (self.debug) {console.log("SafetyPrinter: terminalScrollEvent")};
             // If user scrolls the terminal, it stops the autoscrolling
             var container = $("#SafetyPrinterTerminal");
             var pos = container.scrollTop();
@@ -326,7 +326,7 @@ $(function() {
         }, 250);
 
         self.gotoTerminalCommand = function () {
-            if (self.debug) {console.log("gotoTerminalCommand")};
+            if (self.debug) {console.log("SafetyPrinter: gotoTerminalCommand")};
             // skip if user highlights text.
             var sel = getSelection().toString();
             if (sel) {
@@ -338,21 +338,21 @@ $(function() {
         };
 
         self.onAfterTabChange = function (current, previous) {
-            if (self.debug) {console.log("onAfterTabChange")};
+            if (self.debug) {console.log("SafetyPrinter: onAfterTabChange")};
             self.tabActive = current === "#term";
             self.updateOutput();
         };
 
 
         self.updateOutput = function () {
-            if (self.debug) {console.log("updateOutput")};
+            if (self.debug) {console.log("SafetyPrinter: updateOutput")};
             if (self.tabActive && OctoPrint.coreui.browserTabVisible && self.autoscrollEnabled() && $("#SafetyPrinterTerminal").is(':visible')) {
                 self.scrollToEnd();
             }
         };
 
         self.displayedLines = ko.pureComputed(function () {
-            if (self.debug) {console.log("displayedLines")};
+            if (self.debug) {console.log("SafetyPrinter: displayedLines")};
             // Filter and display msgs on terminal
 
             var col=document.getElementById("terminal-output");
@@ -405,7 +405,7 @@ $(function() {
         // ************* Update Settings TAB:
 
         self.onSettingsShown = function () {
-            if (self.debug) {console.log("onSettingsShown")};
+            if (self.debug) {console.log("SafetyPrinter: onSettingsShown")};
             
             self.settingsVisible = true;
             self.refreshMCUStats();
@@ -424,7 +424,7 @@ $(function() {
         };
 
         self.updatePorts = function (addPort){
-            if (self.debug) {console.log("updatePorts")};
+            if (self.debug) {console.log("SafetyPrinter: updatePorts")};
             self.availablePorts.removeAll();
             self.availablePorts.push(new ItemViewModel("AUTO"));
             if (addPort != ""){
@@ -434,18 +434,18 @@ $(function() {
         };        
 
         self.onSettingsHidden = function () {            
-            if (self.debug) {console.log("onSettingsHidden")};
+            if (self.debug) {console.log("SafetyPrinter: onSettingsHidden")};
             self.settingsVisible = false;
             OctoPrint.simpleApiCommand("SafetyPrinter", "settingsVisible", {status: self.settingsVisible});
             if (self.changedFlag && !self.printerState.isPrinting()) {
-                if (self.debug) {console.log("Writing EEPROM")};
+                if (self.debug) {console.log("SafetyPrinter: Writing EEPROM")};
                 self.changedFlag = false;
                 OctoPrint.simpleApiCommand("SafetyPrinter", "saveEEPROM");  
             }
         }; 
 
         self.refreshSettings = function(i) {
-            if (self.debug) {console.log("refreshSettings")};
+            if (self.debug) {console.log("SafetyPrinter: refreshSettings")};
             // Update sensors info.
 
             if (self.numOfSensors > 0 && !self.notConnected()) {
@@ -485,7 +485,7 @@ $(function() {
         };
 
         self.onSettingsBeforeSave = function() {
-            if (self.debug) {console.log("onSettingsBeforeSave")};
+            if (self.debug) {console.log("SafetyPrinter: onSettingsBeforeSave")};
             alertFlag = false;
 
             self.settingsViewModel.settings.plugins.SafetyPrinter.avrdude_path(self.configAvrdudePath());  
@@ -496,7 +496,7 @@ $(function() {
                 if (self.spSensorsSettings()[i].validInfo && !self.notConnected()) {
                     if (self.spSensorsSettings()[i].SP() != self.spSensors()[i].SP()) {
                         if (!self.printerState.isPrinting()) {  // avoids changes during printing.
-                            if (self.debug) {console.log("Changing SP: " + self.spSensorsSettings()[i].label())};
+                            if (self.debug) {console.log("SafetyPrinter: Changing SP: " + self.spSensorsSettings()[i].label())};
                             OctoPrint.simpleApiCommand("SafetyPrinter", "changeSP", {id: i, newSP: self.spSensorsSettings()[i].SP()});
                             self.changedFlag = true;
                         } else {
@@ -506,7 +506,7 @@ $(function() {
 
                     if (self.spSensorsSettings()[i].timer() != self.spSensors()[i].timer()) {
                         if (!self.printerState.isPrinting()) {  // avoids changes during printing.
-                            if (self.debug) {console.log("Changing Timer: " + self.spSensorsSettings()[i].label())};
+                            if (self.debug) {console.log("SafetyPrinter: Changing Timer: " + self.spSensorsSettings()[i].label())};
                             OctoPrint.simpleApiCommand("SafetyPrinter", "changeTimer", {id: i, newTimer: self.spSensorsSettings()[i].timer()});
                             self.changedFlag = true;
                         } else {
@@ -518,11 +518,11 @@ $(function() {
                     if (self.spSensorsSettings()[i].enabled() != self.spSensors()[i].enabled()) {
                         if (!self.printerState.isPrinting()) {  // avoids changes during printing.
                             if (self.spSensorsSettings()[i].enabled()) {                        
-                                if (self.debug) {console.log("Enabling: " + self.spSensorsSettings()[i].label())};
+                                if (self.debug) {console.log("SafetyPrinter: Enabling: " + self.spSensorsSettings()[i].label())};
                                 OctoPrint.simpleApiCommand("SafetyPrinter", "toggleEnabled", {id: i, onoff: "on"});
                                 self.changedFlag = true;
                             } else {
-                                if (self.debug) {console.log("Disabling: " + self.spSensorsSettings()[i].label())};
+                                if (self.debug) {console.log("SafetyPrinter: Disabling: " + self.spSensorsSettings()[i].label())};
                                 OctoPrint.simpleApiCommand("SafetyPrinter", "toggleEnabled", {id: i, onoff: "off"});
                                 self.changedFlag = true;
                             }
@@ -541,7 +541,7 @@ $(function() {
         // ************* Functions for each button on Settings TAB:
 
         self.toggleAutoscrollBtn = function() {
-            if (self.debug) {console.log("toggleAutoscrollBtn")};
+            if (self.debug) {console.log("SafetyPrinter: toggleAutoscrollBtn")};
             // Changes the setings terminal autoscroll to ON or OFF
             self.autoscrollEnabled(!self.autoscrollEnabled());
 
@@ -551,7 +551,7 @@ $(function() {
         };
         
         self.toggleFilterBtn = function() {
-            if (self.debug) {console.log("toggleFilterBtn")};
+            if (self.debug) {console.log("SafetyPrinter: toggleFilterBtn")};
             // enable or disable <R1> messages on terminal
             var data = {
                 plugins: {
@@ -565,7 +565,7 @@ $(function() {
         
 
         self.resetBtn = function(item) {
-            if (self.debug) {console.log("resetBtn")};
+            if (self.debug) {console.log("SafetyPrinter: resetBtn")};
             // Send a command to arduino restore sensor settings
             for (i = 0; i < self.numOfSensors; i++) {                                         
                 if (self.spSensorsSettings()[i].checked()) {
@@ -577,18 +577,18 @@ $(function() {
         };
 
         self.refreshMCUStats = function(item) {
-            if (self.debug) {console.log("refreshMCUStats")};
+            if (self.debug) {console.log("SafetyPrinter: refreshMCUStats")};
             // Send a command to arduino refresh MCU status
             OctoPrint.simpleApiCommand("SafetyPrinter", "refreshMCUStats"); 
         };
 
         self.addPortBtn = function () {
-           if (self.debug) {console.log("addPortBtn")};
+           if (self.debug) {console.log("SafetyPrinter: addPortBtn")};
            self.updatePorts(self.settingsViewModel.settings.plugins.SafetyPrinter.additionalPort());   
         }
 
         self.selectFirmwareFile = function (fileName) {
-            console.log(fileName);
+            if (self.debug) {console.log("SafetyPrinter: selectFirmwareFile")};
             self.firmwareFileName(fileName.name);
             if (!self.notConnected()) {
                 self.readyToFlash(true);
@@ -596,6 +596,7 @@ $(function() {
         }
 
         self.testAvrdudePath = function() {
+            if (self.debug) {console.log("SafetyPrinter: testAvrdudePath")};
             var filePathRegEx_Linux = new RegExp("^(\/[^\0/]+)+$");
             var filePathRegEx_Windows = new RegExp("^[A-z]\:\\\\.+.exe$");
 
@@ -635,6 +636,7 @@ $(function() {
         };
 
         self.startFlashFromFile = function() {
+            if (self.debug) {console.log("SafetyPrinter: startFlashFromFile")};  
             if (!self._checkIfReadyToFlash("file")) {
                 return;
             }
@@ -654,6 +656,7 @@ $(function() {
         };
 
         self._checkIfReadyToFlash = function(source) {
+            if (self.debug) {console.log("SafetyPrinter: _checkIfReadyToFlash")};  
             var alert = undefined;
 
             if (!self.loginState.isAdmin()){
@@ -687,7 +690,7 @@ $(function() {
         };
 
         self.savePath = function() {
-            if (self.debug) {console.log("savePath")};            
+            if (self.debug) {console.log("SafetyPrinter: savePath")};            
             self.configAvrdudePath.valueHasMutated();
             var data = {
                 plugins: {
@@ -702,7 +705,7 @@ $(function() {
 
         self.savePort = function() {
             self.settingsViewModel.settings.plugins.SafetyPrinter.additionalPort.valueHasMutated();
-            if (self.debug) {console.log("savePort")};
+            if (self.debug) {console.log("SafetyPrinter: savePort")};
             self.configSerialPort.valueHasMutated();
             var data = {
                 plugins: {
@@ -720,7 +723,7 @@ $(function() {
 
         self.sendCommandBtn = function() {
             
-            if (self.debug) {console.log("sendCommandBtn")};
+            if (self.debug) {console.log("SafetyPrinter: sendCommandBtn")};
             // Send generic user comands from command line on terminal to arduino
 
             if (self.command()) {
@@ -746,7 +749,7 @@ $(function() {
         };
 
         self.previousCommand = function() {
-            if (self.debug) {console.log("previousCommand")};
+            if (self.debug) {console.log("SafetyPrinter: previousCommand")};
             if (self.countCommands > 0) {
                 self.countCommands = self.countCommands -1;
                 self.command(self.lastCommands[self.countCommands]);
@@ -754,7 +757,7 @@ $(function() {
         };
 
         self.nextCommand = function() {
-            if (self.debug) {console.log("nextCommand")};
+            if (self.debug) {console.log("SafetyPrinter: nextCommand")};
             if (self.countCommands < (self.lastCommands.length)) {
                 self.countCommands = self.countCommands +1;
                 self.command(self.lastCommands[self.countCommands]);
@@ -762,7 +765,7 @@ $(function() {
         };
 
         self.scrollToEnd = function () {
-            if (self.debug) {console.log("scrollToEnd")};
+            if (self.debug) {console.log("SafetyPrinter: scrollToEnd")};
             var container = $("#SafetyPrinterTerminal");
             if ((container.length) && $("#SafetyPrinterTerminal").is(':visible') && OctoPrint.coreui.browserTabVisible) {
                 container.scrollTop(container[0].scrollHeight);
@@ -770,7 +773,7 @@ $(function() {
         };
 
         self.copyAll = function () {
-            if (self.debug) {console.log("copyAll")};
+            if (self.debug) {console.log("SafetyPrinter: copyAll")};
             //var lines;
             //lines = self.terminalLines();
             var clipboard;
@@ -785,7 +788,7 @@ $(function() {
         };
 
         self.clearAllLogs = function () {
-            if (self.debug) {console.log("clearAllLogs")};
+            if (self.debug) {console.log("SafetyPrinter: clearAllLogs")};
             self.terminalLines([]);
             self.countTerminalLines = 0;
         };
@@ -794,7 +797,7 @@ $(function() {
         // ************* Functions for each button on Sidebar:
 
         self.tripResetBtn = function() {
-            if (self.debug) {console.log("tripResetBtn")};
+            if (self.debug) {console.log("SafetyPrinter: tripResetBtn")};
             // Send a command to arduino to reset all trips
             OctoPrint.simpleApiCommand("SafetyPrinter", "resetTrip");
             
@@ -806,7 +809,7 @@ $(function() {
         };
 
         self.onAutomaticShutdownEvent = function() {
-            if (self.debug) {console.log("onAutomaticShutdownEvent")};
+            if (self.debug) {console.log("SafetyPrinter: onAutomaticShutdownEvent")};
             if (self.automaticShutdownEnabled()) {
                 OctoPrint.simpleApiCommand("SafetyPrinter", "enableShutdown");
             } else {
@@ -817,12 +820,12 @@ $(function() {
         self.automaticShutdownEnabled.subscribe(self.onAutomaticShutdownEvent, self);
 
         self.tripBtn = function() {
-            if (self.debug) {console.log("tripBtn")};
+            if (self.debug) {console.log("SafetyPrinter: tripBtn")};
             self.confirmVisible(!self.confirmVisible());
         };
 
         self.tripConfirmBtn = function() {
-            if (self.debug) {console.log("tripConfirmBtn")};
+            if (self.debug) {console.log("SafetyPrinter: tripConfirmBtn")};
             self.confirmVisible(!self.confirmVisible());
             OctoPrint.simpleApiCommand("SafetyPrinter", "sendTrip");
         };
@@ -830,7 +833,7 @@ $(function() {
         // ************* Functions for navbar:
 
         self.updateNavbar = function(flag,status) {
-            if (self.debug) {console.log("updateNavbar:"+flag+","+status)};
+            if (self.debug) {console.log("SafetyPrinter: updateNavbar:"+flag+","+status)};
             switch (flag) {
                 case 'Offline':
                     self.NBOffline = status;
@@ -867,7 +870,7 @@ $(function() {
         // ************* Functions for general buttons:
 
         self.connectBtn = function() {
-            if (self.debug) {console.log("connectBtn")};
+            if (self.debug) {console.log("SafetyPrinter: connectBtn")};
             // Connects or disconnects to the Safety Printer Arduino
             if (self.notConnected()) {
                 self.connection("Connecting");
@@ -885,7 +888,7 @@ $(function() {
        
         self.onDataUpdaterPluginMessage = function(plugin, data) {
             if (self.debug) {
-                console.log("onDataUpdaterPluginMessage: " + data.type);
+                console.log("SafetyPrinter: onDataUpdaterPluginMessage: " + data.type);
                 console.log(data);
             }
 
@@ -1047,10 +1050,11 @@ $(function() {
                     percent = (parseInt(data.badmsgs)/parseInt(data.totalmsgs))*100;
                     self.badMsgs(data.badmsgs + " - " + percent.toFixed(1) + "%"); 
                     self.reducedConn(data.reduced);
+                    self.warning(data.reduced);
                     if (self.reducedConn()){
                         self.expertMode(false);
-                        self.warning(true);
                         self.warningMsg("Communication reduced to essentials and no configuration is allowed. It's highly recommended to update this plugin and/or safety printer MCU firmware.");
+                        self.updateNavbar('Warning',true);
                     }
                 }
                 
@@ -1084,6 +1088,7 @@ $(function() {
                     self.notConnected(true); 
                     self.reducedConn(false);
                     self.warning(false);
+                    self.warningMsg("");
 
                     self.updateNavbar('Offline',true)
 
@@ -1177,7 +1182,9 @@ $(function() {
             }
             else if (data.type == "warning") {
                 self.updateNavbar('Warning',true);
-                self.showPopup("warning",gettext("SafetyPrinter Warning"),data.warningMsg);
+                if (data.popup) {
+                    self.showPopup("warning",gettext("SafetyPrinter Warning"),data.warningMsg);
+                }
                 self.warning(true);
                 self.warningMsg(data.warningMsg);
                 

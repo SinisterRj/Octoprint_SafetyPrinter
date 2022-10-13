@@ -30,7 +30,7 @@
 </table>
 <span data-bind="hidden: notConnected">
 <span data-bind="visible: confirmVisible()">Are you sure? This will STOP any printing and you will loose any running job.</span>  
-<center><button data-bind="click: tripBtn, hidden: confirmVisible()" class="btn btn-danger">Emergency STOP</button></center>
+<center><button data-bind="click: tripBtn, hidden: confirmVisible(), enable:!reducedConn()" class="btn btn-danger">Emergency STOP</button></center>
 <center><button class="btn btn-danger" data-bind="click: tripConfirmBtn, visible: confirmVisible()">Confirm E. STOP</button> <button class="btn" data-bind="click: tripBtn, visible: confirmVisible()">Cancel</button>
 </span>
 </div>
