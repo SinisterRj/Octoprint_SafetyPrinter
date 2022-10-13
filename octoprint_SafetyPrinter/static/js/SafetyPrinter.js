@@ -730,6 +730,10 @@ $(function() {
                     OctoPrint.simpleApiCommand("SafetyPrinter", "reconnect"); 
                 } else if (self.command().toUpperCase() == "@RENEW") {
                     OctoPrint.simpleApiCommand("SafetyPrinter", "forceRenew");  
+                } else if (self.command().toUpperCase() == "@DEBUG") {
+                    self.debug = !self.debug;
+                    self.terminalLines.push(new TerminalViewModel("JS Debug mode is: "+String(self.debug),"INFO"));
+                    self.countTerminalLines++;
                 } else {
                     OctoPrint.simpleApiCommand("SafetyPrinter", "sendCommand", {serialCommand: self.command()}); 
                 }
@@ -1046,7 +1050,7 @@ $(function() {
                     if (self.reducedConn()){
                         self.expertMode(false);
                         self.warning(true);
-                        self.warninMsg("Communication reduced to essentials and no configuration is allowed. It's highly recommended to update this plugin and/or safety printer MCU firmware.");
+                        self.warningMsg("Communication reduced to essentials and no configuration is allowed. It's highly recommended to update this plugin and/or safety printer MCU firmware.");
                     }
                 }
                 
