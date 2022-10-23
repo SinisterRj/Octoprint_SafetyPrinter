@@ -20,7 +20,7 @@
  *
  *  
  * Version 1.2.0
- * 07/10/22
+ * 22/10/22
  * 1) Include <r4> command in connection to receive answer from Arduino Leonardo;
  * 2) Arduino Leonardo VID & PID included on auto detect ports;
  * 3) Limits terminal lines to 300, as Octoprint's terminal;
