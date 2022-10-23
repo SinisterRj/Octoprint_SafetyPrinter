@@ -245,7 +245,7 @@
     </tr>   
 </table>
 </br>
-<span data-bind="visible: sensorDataVisible()"><h4>Sensor data:</h4>
+<span data-bind="visible: sensorDataVisible() && !reducedConn()"><h4>Sensor data:</h4>
 <table class="table table-bordered table-hover SPTable">
   <thead>
   <tr>
@@ -261,7 +261,7 @@
   </tr>
   </thead>
   <tbody data-bind="foreach: spSensorsSettings">
-  <tr data-bind="visible: visible && !$parent.reducedConn()">  
+  <tr data-bind="visible: visible">  
     <td><small><input type="checkbox" data-bind="checked: checked, enable: $parent.expertMode()"/></small></td>
     <td><small><span data-bind="text: label"></span></small></td>
     <td><small><span data-bind="text: type"></span></small></td>
