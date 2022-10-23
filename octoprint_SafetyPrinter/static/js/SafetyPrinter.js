@@ -1052,7 +1052,6 @@ $(function() {
                     self.reducedConn(data.reduced);
                     self.warning(data.reduced);
                     if (self.reducedConn()){
-                        self.expertMode(false);
                         self.warningMsg("Communication reduced to essentials and no configuration is allowed. It's highly recommended to update this plugin and/or safety printer MCU firmware.");
                         self.updateNavbar('Warning',true);
                     }
@@ -1066,9 +1065,6 @@ $(function() {
                     self.connectedPort(data.port);
                     self.updateNavbar('Offline',false);
                     self.reducedConn(data.reduced);
-                    if (self.reducedConn()){
-                        self.expertMode(false);
-                    }
                     
                      //Update Settings tab
                     if (self.settingsVisible) {

@@ -31,7 +31,7 @@ if ((sys.platform == 'linux') or (sys.platform =='linux2')):
     import termios
 
 class Connection():
-    def __init__(self, plugin):
+    def __init__(self, plugin, waitPrinter):
 
         self.compatibleFirmwareCommProtocol = ["6"]
         self.reducedComm = False;
@@ -108,21 +108,30 @@ class Connection():
             self.push_notification_Printoid = helpers["fcm_notification"]
         '''
         
-        self.connect()        
+        self.connect(waitPrinter)        
 
     # *******************************  Functions to deal with Serial connections
 
-    def connect(self):
+    def connect(self, waitPrinter):
         # Connects to Safety Printer Arduino through serial port
-        #self._console_logger.info("Connecting...")
         self.connFail = False
         self.abortSerialConn = False
         self.terminal("Connecting...","Info")
-        #self.ports = self.getAllPorts()
-        #self._console_logger.info("Potential ports: %s" % self.ports)
-        #self.terminal("Potential ports: %s" % self.ports,"Info")
 
-        if (self._settings.get(["serialport"]) != "AUTO"): # and (self._settings.get(["serialport"]) not in self.ports)):
+        if waitPrinter:
+            i = 0
+            while not self._printer.is_operational(): # Wait for printer
+                        i += 1                    
+                        time.sleep(1)
+                        self.terminal("Waiting Printer...","Info")
+                        if i > 30:
+                            self.terminal("Waiting printer time out.","Info")
+                            self.connFail = True
+                            self.update_ui_connection_status()
+                            return
+            self.terminal("Printer is operational, resuming...","Info")
+
+        if (self._settings.get(["serialport"]) != "AUTO"):
             self.ports.append(self._settings.get(["serialport"]))
             self.terminal("User selected port: %s" % self.ports,"Info")
         else:
@@ -134,12 +143,11 @@ class Connection():
                 return
             else:
                 self.ports = self.getAllPorts()
-                #self._console_logger.info("Potential ports: %s" % self.ports)
                 self.terminal("Potential ports: %s" % self.ports,"Info")
 
         reconnect = None
         if self._printer.is_operational():
-            # if an arduino nano or uno is used, it will reset upon connection, resseting the printer also.
+            # if an arduino nano or uno is used without the capacitor, it will reset upon connection, resseting the printer also.
             _, current_port, current_baudrate, current_profile = self._printer.get_current_connection()
             reconnect = (current_port, current_baudrate, current_profile)
             self.terminal("Printer is operational: port={}, baudrate={}, profile={}".format(current_port, current_baudrate, current_profile),"Info")
@@ -245,7 +253,10 @@ class Connection():
 
                     if self.FWValidVersion:
                         self.forceRenewConn = True
-                        self.reducedComm = False
+                        if self._settings.get_boolean(["forceRedComm"]):
+                            self.reducedComm = True
+                        else:
+                            self.reducedComm = False
                         self.update_ui_connection_status()
                     else:
                         self.forceRenewConn = True
@@ -335,7 +346,10 @@ class Connection():
             return False
 
         #printer_port = self._printer.get_current_connection()[1]
-        if self._printer.get_current_connection()[0] == "Closed":
+        if loggin:
+            self._console_logger.info("Printer Connection Status: %s" %self._printer.get_current_connection()[0])
+
+        if self._printer.get_current_connection()[0] == "Closed" or not self._printer.is_operational():
             if loggin:
                 self._console_logger.info("No printer connected.")
             return False
@@ -649,7 +663,7 @@ class Connection():
                 popup = "\U000026A0 " "SafetyPrinter " + popup
                 self.app_notification(popup)
             else:
-                self._plugin_manager.send_plugin_message(self._identifier, {"type": "warning", "warningMsg": popup, "popup" : False})
+                self._plugin_manager.send_plugin_message(self._identifier, {"type": "warning", "warningMsg": popup, "popup" : True})
 
 
         elif  ttype == "error":

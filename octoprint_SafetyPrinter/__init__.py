@@ -36,7 +36,9 @@
  * 13) Fix a bug that gives an error when the selected port don't exists;
  * 14) Update comm. protocol to version 6;
  * 15) Fix a bug that don't close the connection upon a flash failure;
- * 16) Fix warning behaviour when warning finishes.
+ * 16) Fix warning behaviour when warning finishes;
+ * 17) Include option to force reduced connection;
+ * 18) Include wait for printer being operational on first connect (solve problems with klipper).
  *
  *
  * Version 1.1.0
@@ -114,9 +116,9 @@ class SafetyPrinterPlugin(
         self._console_logger = logging.getLogger("octoprint.plugins.safetyprinter") 
         #  Use self._logger.info for debug
         
-    def new_connection(self):
+    def new_connection(self,waitPrinter):
         self._console_logger.info("Attempting to connect to Safety Printer MCU ...")
-        self.conn = Connection.Connection(self)
+        self.conn = Connection.Connection(self,waitPrinter)
         self.startTimer(1.0)
 
     def startTimer(self, interval):
@@ -150,7 +152,7 @@ class SafetyPrinterPlugin(
         self._console_logger.info("******************* Starting Safety Printer Plug-in ***************************")
         self._console_logger.info("Default Serial Port:" + str(self._settings.get(["serialport"])))
         self._console_logger.info("Default BAUD rate:" + str(self._settings.get(["BAUDRate"])))
-        self.new_connection()
+        self.new_connection(True)
 
         self.abortTimeout = self._settings.get_int(["abortTimeout"])
         self._console_logger.debug("abortTimeout: %s" % self.abortTimeout)
@@ -197,7 +199,8 @@ class SafetyPrinterPlugin(
             additionalPort = "",
             notifyVoltageTemp = True,
             avrdude_path = "/usr/bin/avrdude",
-            terminalMsgFilter = False
+            terminalMsgFilter = False,
+            forceRedComm = False
         )
 
     def on_settings_save(self, data):
@@ -305,7 +308,7 @@ class SafetyPrinterPlugin(
     def on_api_command(self, command, data):
         try:
             if command == "reconnect":
-                self.new_connection()
+                self.new_connection(False)
             elif command == "disconnect":
                 self.on_shutdown()
             elif command == "resetTrip":
@@ -647,7 +650,7 @@ class SafetyPrinterPlugin(
                 if avrdude._flash_avrdude(self, firmware=firmware, printer_port=mcu_port):
                     time.sleep(1)
                     self._send_status("progress", subtype="reconnecting")                
-                    self.new_connection() # Reconnect to the Safety Printer MCU.
+                    self.new_connection(False) # Reconnect to the Safety Printer MCU.
                     time.sleep(0.5)
                     message = u"Flashing successful."
                     self.conn.terminal(message,"INFO") 
