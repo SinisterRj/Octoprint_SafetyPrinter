@@ -19,7 +19,7 @@
 <div class="row-fluid">
     <div class="span6" id="terminal-filterpanel">
             <label class="checkbox">
-                <input type="checkbox" data-bind="checked: tempMsgFilter"> {{ _('Supress status (&ltR1&gt) messages.') }}
+                <input type="checkbox" data-bind="click: toggleFilterBtn, checked: settingsViewModel.settings.plugins.SafetyPrinter.terminalMsgFilter()"> {{ _('Supress status (&ltR1&gt) messages.') }}
             </label>
     </div>
 </div>
