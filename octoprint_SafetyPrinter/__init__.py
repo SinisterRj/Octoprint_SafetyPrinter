@@ -16,7 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  * 
  * 
+ * Falta resolver: O Flash do firmware n~ao est'a funcionando e a msg de erro n~ao chega no browser
+  al'em disso preciso implementar o flash no rp2040 e no esp
+ * 
  *  Change log:
+ *
+ * Version 1.2.1
+ * 10/08/23
+ * 1) Add support to RP2040
+ * 2) Remove unreliable MCU temperature and power supply voltage
+ * 3) Adds a "refresh" button to port list on settings
  *
  *  
  * Version 1.2.0
@@ -90,6 +99,8 @@ from octoprint.server import admin_permission, NO_CONTENT
 from octoprint_SafetyPrinter.methods import avrdude
 import os
 
+
+
 totalSensors = 0
 
 class SafetyPrinterPlugin(
@@ -114,7 +125,10 @@ class SafetyPrinterPlugin(
         self.loggingLevel = 0
         self._flash_thread = None
         self._console_logger = logging.getLogger("octoprint.plugins.safetyprinter") 
+        # change the loggin on Connection.py for debug
         #  Use self._logger.info for debug
+        #self._console_logger = self._logger.info
+        
         
     def new_connection(self,waitPrinter):
         self._console_logger.info("Attempting to connect to Safety Printer MCU ...")
@@ -171,9 +185,6 @@ class SafetyPrinterPlugin(
         self.loggingLevel = self._settings.get(["loggingLevel"])
         self._console_logger.debug("loggingLevel: %s" % self.loggingLevel)
 
-        self.notifyVoltageTemp = self._settings.get_boolean(["notifyVoltageTemp"])
-        self._console_logger.debug("notifyVoltageTemp: %s" % self.notifyVoltageTemp)
-
         self._console_logger.debug("avrdude_path: %s" % self._settings.get(["avrdude_path"]))
 
     # ~~ ShutdonwPlugin mixin
@@ -197,7 +208,6 @@ class SafetyPrinterPlugin(
             notifyWarnings = True,
             useEmoji = True,
             additionalPort = "",
-            notifyVoltageTemp = True,
             avrdude_path = "/usr/bin/avrdude",
             terminalMsgFilter = False,
             forceRedComm = False
@@ -226,7 +236,6 @@ class SafetyPrinterPlugin(
         self._console_logger.debug("notifyWarnings: %s" % self._settings.get(["notifyWarnings"]))
         self._console_logger.debug("useEmoji: %s" % self._settings.get(["useEmoji"]))
         self._console_logger.debug("additionalPort: %s" % self._settings.get(["additionalPort"]))
-        self._console_logger.debug("notifyVoltageTemp: %s" % self._settings.get(["notifyVoltageTemp"]))
         self._console_logger.debug("avrdude_path : %s" % self._settings.get(["avrdude_path"]))
 
 
@@ -301,8 +310,7 @@ class SafetyPrinterPlugin(
             abortShutdown=[],
             refreshMCUStats=[],
             forceRenew=[],
-            settingsVisible=["status"],
-            flashFile=["fileName"]
+            settingsVisible=["status"]
         )
 
     def on_api_command(self, command, data):
@@ -341,8 +349,6 @@ class SafetyPrinterPlugin(
                 self.forceRenew()
             elif command == "settingsVisible":
                 self.settingsVisible(bool(data["status"]))
-            elif command == "flashFile":
-                self.flashFile(str(data["fileName"]))
             response = "POST request (%s) successful" % command
             return flask.jsonify(response=response, data=data, status=200), 200
         except Exception as e:
@@ -445,12 +451,6 @@ class SafetyPrinterPlugin(
         if self.conn:
             self.conn.settingsVisible = status
 
-    '''def flashFile(self, fileName):
-        if self.conn:
-            self._console_logger.info("Flashing new firmware to MCU (" + fileName + ").")
-            self.conn.flashFirmware(fileName)
-    '''
-
     def on_event(self, event, payload):
 
         if event == Events.CLIENT_OPENED:
@@ -543,6 +543,12 @@ class SafetyPrinterPlugin(
 
     def is_blueprint_csrf_protected(self):
         return True
+    
+    @octoprint.plugin.BlueprintPlugin.errorhandler(Exception)
+    def errorhandler(self, error):
+        self._send_status("flasherror", subtype="other", message=str(error))
+        self.conn.terminal(str(error),"ERROR")   
+        return error
 
     @octoprint.plugin.BlueprintPlugin.route("/status", methods=["GET"])
     @octoprint.server.util.flask.restricted_access
@@ -554,6 +560,7 @@ class SafetyPrinterPlugin(
     @octoprint.server.admin_permission.require(403)
     def flash_firmware(self):
 
+        self._console_logger.info("**************************** ENTROU ****************************")
         if not self.conn or not self.conn.is_connected():
             error_message = "Safety Printer MCU must be connected to flash."
             self._send_status("flasherror", subtype="notconnected", message=error_message)

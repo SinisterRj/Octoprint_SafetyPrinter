@@ -65,7 +65,7 @@ $(function() {
     function SafetyprinterViewModel(parameters) {
         var self = this;
 
-        self.debug = false;  
+        self.debug = false; //change to true for debug
 
         // Parameters
         self.settingsViewModel = parameters[0];
@@ -104,8 +104,6 @@ $(function() {
         self.FWValidVersion = ko.observable(false);
         self.FWBoardType = ko.observable("");
 
-        self.MCUVolts = ko.observable("");
-        self.MCUTemp = ko.observable("");
         self.MCUSRAM = ko.observable("");
         self.MCUMaxTime = ko.observable("");
         self.MCUAvgTime = ko.observable("");
@@ -640,17 +638,16 @@ $(function() {
             if (!self._checkIfReadyToFlash("file")) {
                 return;
             }
-
             self.configAvrdudePath(self.settingsViewModel.settings.plugins.SafetyPrinter.avrdude_path());
             
-            //self.closePopup();
             self.progressBarText("Flashing firmware...");
             self.isBusy(true);
             self.showAlert(false);
 
             self.hexData.formData = {
+
                 port: self.connectedPort(),
-                //profile: self.selectedProfileIndex(),
+                //profile: 0,
             };
             self.hexData.submit();
         };
@@ -1094,8 +1091,6 @@ $(function() {
                     self.FWCommProtocol("");
                     self.FWValidVersion(false);
 
-                    self.MCUVolts("");
-                    self.MCUTemp("");
                     self.MCUSRAM("");
                     self.MCUMaxTime("");
                     self.MCUAvgTime("");
@@ -1159,15 +1154,15 @@ $(function() {
                 self.FWEEPROM(data.EEPROM);
                 self.FWCommProtocol(data.CommProtocol);
                 self.FWValidVersion(data.ValidVersion);
-                if (data.BoardType == "1") {
+                if ((data.BoardType == "1") || (data.BoardType == "2")) {
                     self.FWBoardType("ATmega328P - Arduino Uno/Nano");
-                } else if (data.BoardType == "2") {
+                } else if (data.BoardType == "3") {
                     self.FWBoardType("ATmega32u4 - Arduino Leonardo");
+                }  else if (data.BoardType == "4") {
+                    self.FWBoardType("RP2040 - Raspberry Pi Pico");
                 }
             }
             else if (data.type == "MCUInfo") {
-                self.MCUVolts(data.volts);
-                self.MCUTemp(data.temp);
                 self.MCUSRAM(data.ram);
                 self.MCUMaxTime(data.maxTime);
                 self.MCUAvgTime(data.avgTime);

@@ -33,7 +33,7 @@ if ((sys.platform == 'linux') or (sys.platform =='linux2')):
 class Connection():
     def __init__(self, plugin, waitPrinter):
 
-        self.compatibleFirmwareCommProtocol = ["6"]
+        self.compatibleFirmwareCommProtocol = ["7"]
         self.reducedComm = False;
         self.warningStatus = False;
 
@@ -80,8 +80,8 @@ class Connection():
         self.voltWarning = "F"
 
         # Plug-in shortcuts
-        #self._console_logger = plugin._logger #Change logger to octoprit.log - for debug only
-        self._console_logger = plugin._console_logger
+        self._console_logger = plugin._logger #Change logger to octoprit.log - for debug only
+        #self._console_logger = plugin._console_logger
         self._logger = plugin._logger
         self._printer = plugin._printer
         self._printer_profile_manager = plugin._printer_profile_manager
@@ -196,6 +196,7 @@ class Connection():
 
                 try:
                     while responseStr.find("R6: Safety Printer MCU") == -1: # Wait for arduino boot and answer
+                        self.serialConn.write("<R6>".encode())
                         i += 1                    
                         time.sleep(0.50)
                         self.terminal("Waiting Safety Printer MCU answer...","Info")
@@ -411,7 +412,8 @@ class Connection():
                 self.sensorLabel = []
                 return
 
-            vpos1 = 3
+            vpos1 = 0    
+            vpos1 = responseStr.find(':',vpos1) + 2
             buffer = self.interlockStatus
             self.interlockStatus = responseStr[vpos1] 
             if self.tripReseted:
@@ -447,23 +449,9 @@ class Connection():
             if ((self.execWarning != buffer) or (self.forceRenew)) and (self.execWarning == "T"):
                 self.terminal("SafetyPrinter MCU high update cycle time.","WARNING")
 
-            buffer = self.tempWarning
-            vpos1 = vpos1 + 2
-            self.tempWarning = responseStr[vpos1]            
-            if ((self.tempWarning != buffer) or (self.forceRenew)) and (self.tempWarning == "T"):
-                if self._settings.get_boolean(["notifyVoltageTemp"]):
-                    self.terminal("SafetyPrinter MCU board temperature out of safe limits.","WARNING")
-
-            buffer = self.voltWarning
-            vpos1 = vpos1 + 2
-            self.voltWarning = responseStr[vpos1]           
-            if ((self.voltWarning != buffer) or (self.forceRenew)) and (self.voltWarning == "T"):
-                if self._settings.get_boolean(["notifyVoltageTemp"]):
-                    self.terminal("SafetyPrinter MCU board suply voltage out of safe limits.","WARNING")
-
             lastWarningStatus = self.warningStatus
             self.warningStatus = False
-            if ((self.resetInhibit == "T") or (self.memWarning == "T") or (self.execWarning == "T") or (self._settings.get_boolean(["notifyVoltageTemp"]) and ((self.tempWarning == "T") or (self.voltWarning == "T")))):
+            if ((self.resetInhibit == "T") or (self.memWarning == "T") or (self.execWarning == "T")):
                 self.warningStatus = True
 
             if ((not self.warningStatus) and (lastWarningStatus)):
@@ -616,19 +604,13 @@ class Connection():
                 vpos2 = responseStr.find(',',vpos1)
                 MCUSRAM = responseStr[vpos1+1:vpos2]
                 vpos1 = vpos2 + 1
-                vpos2 = responseStr.find(',',vpos1)
-                MCUTemp = responseStr[vpos1:vpos2]
-                vpos1 = vpos2 + 1
-                vpos2 = responseStr.find(',',vpos1)
-                MCUVolts = responseStr[vpos1:vpos2]
-                vpos1 = vpos2 + 1
-                vpos2 = responseStr.find(',',vpos1)
+                vpos2 = responseStr.find(',',vpos1)                
                 MCUMaxTime = responseStr[vpos1:vpos2]
                 vpos1 = vpos2 + 1
                 vpos2 = responseStr.find(',',vpos1)
                 MCUAvgTime = responseStr[vpos1:vpos2]
 
-                self._plugin_manager.send_plugin_message(self._identifier, {"type": "MCUInfo", "volts": MCUVolts, "temp": MCUTemp, "ram": MCUSRAM, "maxTime": MCUMaxTime, "avgTime": MCUAvgTime})  
+                self._plugin_manager.send_plugin_message(self._identifier, {"type": "MCUInfo", "ram": MCUSRAM, "maxTime": MCUMaxTime, "avgTime": MCUAvgTime})  
 
 
     def terminal(self,msg,ttype):

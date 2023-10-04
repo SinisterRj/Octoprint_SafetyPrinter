@@ -27,7 +27,8 @@
         <td>
             <select data-bind="options: availablePorts, optionsText: 'name', optionsValue: 'name', value: configSerialPort, valueAllowUnset: true"></select>            
         </td>
-        <td><button data-bind="click: savePort, visible: configSerialPort() != settingsViewModel.settings.plugins.SafetyPrinter.serialport()" class="btn">{{ _('Save') }}</button></td>
+        <td><button data-bind="click: savePort, visible: configSerialPort() != settingsViewModel.settings.plugins.SafetyPrinter.serialport()" class="btn">{{ _('Save') }}</button>
+            <button data-bind="click: onSettingsShown, visible: notConnected()" class="btn">{{ _('Refresh') }}</button></td>
     </tr>
     <tr>
         <td style="text-align:right">Aditional Serial Port:&nbsp;&nbsp;</td>
@@ -152,22 +153,6 @@
         <td style="vertical-align: bottom">
             <button data-bind="click: refreshMCUStats, hidden: notConnected" class="btn">Refresh</button>
         </td>
-    </tr>
-    <tr>
-        <td style="text-align:right">&nbsp;&nbsp;</td>
-        <td>
-        <input type="checkbox" data-bind="checked: settingsViewModel.settings.plugins.SafetyPrinter.notifyVoltageTemp"> Enable "Supply Voltage" and "Internal Temperature" warnings.</input>&nbsp;&nbsp;
-        </td>        
-    </tr>
-    <tr>
-        <td style="text-align:right">Supply Voltage:&nbsp;&nbsp;</td>
-        <td><span data-bind="text: MCUVolts"></span> V</td>
-        <td></td>
-    </tr>
-    <tr>
-        <td style="text-align:right">Internal Temperature:&nbsp;&nbsp;</td>
-        <td><span data-bind="text: MCUTemp"></span> °C</td>
-        <td></td>
     </tr>
     <tr>
         <td style="text-align:right">Free SRAM:&nbsp;&nbsp;</td>
