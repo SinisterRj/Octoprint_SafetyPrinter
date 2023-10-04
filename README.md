@@ -2,7 +2,10 @@
 
 This plugin interfaces with Safety Printer MCU (https://github.com/SinisterRj/SafetyPrinter). You can find more information on [Wiki](https://github.com/SinisterRj/SafetyPrinter/wiki).
 
-P.S.: It also integrates with [Octopod](https://plugins.octoprint.org/plugins/octopod/) notifications, so is highly recommended its installation.
+P.S.: 
+1) It also integrates with [Octopod](https://plugins.octoprint.org/plugins/octopod/) notifications, so is highly recommended its installation.
+2) For firmware update feature you will need the avrdude. For its installation follow these instructions: https://github.com/OctoPrint/OctoPrint-FirmwareUpdater/blob/master/doc/avrdude.md#avrdude-installation
+
 
 With this plugin you will be able to setup, supervise and trobleshoot your Safety Printer MCU. It provides:
 
