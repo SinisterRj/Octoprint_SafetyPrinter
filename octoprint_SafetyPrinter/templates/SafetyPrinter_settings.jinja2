@@ -93,12 +93,14 @@
         </td>            
         <td></td>
     </tr>
+    
     <tr>
         <td colspan="3">
         </br>
         <h4>Firmware Update: <i class="fas fa-info-circle" title="Modified from: Firmware Updater plug-in by Ben Lye, Gina Häußge and Nicanor Romero Venier, https://github.com/OctoPrint/OctoPrint-FirmwareUpdater."></i></h4>        
         </td>
     </tr>
+    <tr>
         <td style="text-align:right">AVR Dude Path:&nbsp;&nbsp;</td>
         <td>
             <input type="text" class="input-block-level" data-bind="value: configAvrdudePath"></input></br>
@@ -131,13 +133,15 @@
     <tr>
         <td></td>
         <td>
-          <button class="btn btn-primary btn-block" data-bind="attr: {title: fileFlashButtonText}, click: startFlashFromFile, disable: !firmwareFileName() || isBusy() || notConnected()">{{ _('Flash from File') }}</button>  
+          <button class="btn btn-primary btn-block" data-bind="attr: {title: fileFlashButtonText}, click: startFlashFromFile, disable: !firmwareFileName() || isBusy() || notConnected() || !flashable()">{{ _('Flash from File') }}</button>
+          <span data-bind="visible: !flashable()"><span class="fa-solid fa-triangle-exclamation" style="color:#FFC300"></span>&nbsp;Firmware flashing not implemented for RP2040 MCUs.</span>
         </td>
         <td></td>
+    </tr>
     <tr>
         <td></td>
         <td colspan="2">
-            <i class="icon-warning-sign"></i>&nbsp;&nbsp;<h5 style="display: inline-block">Warning</h5>
+            <span class="fa-solid fa-triangle-exclamation" style="color:#FFC300"></span>&nbsp;&nbsp;<h5 style="display: inline-block">Warning</h5>
             <p>As with any firmware flashing there is a risk that things may go wrong.</p>
             <ul>
                 <li><b>Do not</b> power-cycle or restart your printer while flashing is in progress.</li>
@@ -145,6 +149,7 @@
             </ul>
         </td>        
     </tr>
+
     <tr>
         <td colspan="2">
         </br>

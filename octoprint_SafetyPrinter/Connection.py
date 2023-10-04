@@ -80,8 +80,8 @@ class Connection():
         self.voltWarning = "F"
 
         # Plug-in shortcuts
-        self._console_logger = plugin._logger #Change logger to octoprit.log - for debug only
-        #self._console_logger = plugin._console_logger
+        #self._console_logger = plugin._logger #Enable this for debug only
+        self._console_logger = plugin._console_logger #disable this for production version
         self._logger = plugin._logger
         self._printer = plugin._printer
         self._printer_profile_manager = plugin._printer_profile_manager

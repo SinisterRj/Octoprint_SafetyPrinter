@@ -22,10 +22,12 @@
  *  Change log:
  *
  * Version 1.2.1
- * 10/08/23
- * 1) Add support to RP2040
+ * 04/10/23
+ * 1) Add partial support to RP2040
  * 2) Remove unreliable MCU temperature and power supply voltage
  * 3) Adds a "refresh" button to port list on settings
+ * 4) Fix an error flashing on Octoprint >1.9.0
+ * 5) Fix icons on interface
  *
  *  
  * Version 1.2.0
@@ -250,8 +252,8 @@ class SafetyPrinterPlugin(
         return [
             dict(type="settings", custom_bindings=True),
             #dict(type="navbar", custom_bindings=False),
-            dict(type="sidebar", name="Safety Printer", custom_bindings=False, icon="fire"),
-            dict(type="tab", name="Safety Printer", custom_bindings=False, icon="fire"),
+            dict(type="sidebar", name="Safety Printer", custom_bindings=False, icon="fa-solid fa-fire-flame-curved"),
+            dict(type="tab", name="Safety Printer", custom_bindings=False, icon="fa-solid fa-fire-flame-curved"),
         ]
 
     def get_assets(self):
@@ -542,7 +544,7 @@ class SafetyPrinterPlugin(
     #~~ BluePrint API
 
     def is_blueprint_csrf_protected(self):
-        return True
+        return False #True
     
     @octoprint.plugin.BlueprintPlugin.errorhandler(Exception)
     def errorhandler(self, error):
@@ -559,8 +561,7 @@ class SafetyPrinterPlugin(
     @octoprint.server.util.flask.restricted_access
     @octoprint.server.admin_permission.require(403)
     def flash_firmware(self):
-
-        self._console_logger.info("**************************** ENTROU ****************************")
+        
         if not self.conn or not self.conn.is_connected():
             error_message = "Safety Printer MCU must be connected to flash."
             self._send_status("flasherror", subtype="notconnected", message=error_message)
@@ -573,7 +574,7 @@ class SafetyPrinterPlugin(
             self.conn.terminal(error_message,"ERROR")
             return flask.make_response(NO_CONTENT)
 
-        value_source = flask.request.json if flask.request.json else flask.request.values
+        value_source = flask.request.json if flask.request.is_json else flask.request.values
 
         if not "port" in value_source:
             error_message = "Cannot flash firmware, Safety Printer MCU port was not specified."

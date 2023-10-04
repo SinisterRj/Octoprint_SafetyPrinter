@@ -103,6 +103,8 @@ $(function() {
         self.FWCommProtocol = ko.observable("");
         self.FWValidVersion = ko.observable(false);
         self.FWBoardType = ko.observable("");
+        self.FWBoardTypeNumber = 0;
+        self.flashable = ko.observable(false);
 
         self.MCUSRAM = ko.observable("");
         self.MCUMaxTime = ko.observable("");
@@ -647,7 +649,7 @@ $(function() {
             self.hexData.formData = {
 
                 port: self.connectedPort(),
-                //profile: 0,
+                mcuType: self.FWBoardTypeNumber,
             };
             self.hexData.submit();
         };
@@ -1080,6 +1082,7 @@ $(function() {
                     self.connectionCaption("Connect");
                     self.notConnected(true); 
                     self.reducedConn(false);
+                    self.flashable(false);
                     self.warning(false);
                     self.warningMsg("");
 
@@ -1154,12 +1157,17 @@ $(function() {
                 self.FWEEPROM(data.EEPROM);
                 self.FWCommProtocol(data.CommProtocol);
                 self.FWValidVersion(data.ValidVersion);
+                self.FWBoardTypeNumber = data.BoardType;
                 if ((data.BoardType == "1") || (data.BoardType == "2")) {
                     self.FWBoardType("ATmega328P - Arduino Uno/Nano");
+                    self.flashable(true);
+                    console.log("******************* Oia nois aqui")
                 } else if (data.BoardType == "3") {
                     self.FWBoardType("ATmega32u4 - Arduino Leonardo");
+                    self.flashable(true);
                 }  else if (data.BoardType == "4") {
                     self.FWBoardType("RP2040 - Raspberry Pi Pico");
+                    self.flashable(false);
                 }
             }
             else if (data.type == "MCUInfo") {
