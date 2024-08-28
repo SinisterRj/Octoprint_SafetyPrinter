@@ -32,4 +32,5 @@ If you run on some communications problems after installation, check this:
 ![Solve connection problems](https://github.com/SinisterRj/SafetyPrinter/wiki/Solve-connection-problems)
 
 Se você é brasileiro 🇧🇷, junte-se a nós no Discord:
-https://discord.com/invite/pUpXTrJ83D
+https://discord.gg/3DyXfGwWJY
+
